@@ -3,6 +3,18 @@ import { parseManifest } from '@remnote/plugin-sdk';
 import { describe, expect, it } from 'vitest';
 
 describe('project config', () => {
+  it('uses public registry tarballs so CI does not require a private network', () => {
+    expect(readFileSync('.npmrc', 'utf8').trim()).toBe('registry=https://registry.npmjs.org/');
+    const lock = JSON.parse(readFileSync('package-lock.json', 'utf8')) as {
+      packages: Record<string, { resolved?: string }>;
+    };
+    for (const [name, entry] of Object.entries(lock.packages)) {
+      if (entry.resolved) {
+        expect(new URL(entry.resolved).origin, name).toBe('https://registry.npmjs.org');
+      }
+    }
+  });
+
   it('requests read-only knowledge-base identity for task journal isolation', () => {
     const manifest = JSON.parse(readFileSync('public/manifest.json', 'utf8'));
 
