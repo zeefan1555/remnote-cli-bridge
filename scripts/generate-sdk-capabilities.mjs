@@ -218,6 +218,9 @@ function capability({ id, target, namespace, method, signatures, summary, reason
     signatures,
     ...(summary ? { summary } : {}),
     ...(namespace === 'richText' && richTextBuilderMethods.has(method) ? { materialize: 'richText' } : {}),
+    ...(target === 'rem' && ['getAliases', 'getOrCreateAliasWithText'].includes(method)
+      ? { materialize: 'aliasText' }
+      : {}),
     status: reason ? 'unsupported' : 'supported',
     mode: modeFor(id, target, method, namespace),
     ...(reason ? { reason } : {}),

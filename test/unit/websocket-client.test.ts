@@ -13,7 +13,6 @@ afterEach(() => {
 });
 function start() {
   vi.stubGlobal('WebSocket', MockWebSocket);
-  const closed = vi.fn();
   const log = vi.fn();
   client = new WebSocketClient({
     url: 'ws://127.0.0.1:3002',
@@ -25,11 +24,10 @@ function start() {
       acceptWriteOperations: true,
       acceptReplaceOperation: false,
     }),
-    onSessionClosed: closed,
     onLog: log,
   });
   client.connect();
-  return { ws: MockWebSocket.instances.at(-1)!, closed, log };
+  return { ws: MockWebSocket.instances.at(-1)!, log };
 }
 describe('authenticated command connection', () => {
   it('authenticates both peers, serializes requests and replies on the same socket', async () => {
@@ -142,10 +140,9 @@ describe('authenticated command connection', () => {
   it('caps retries at 1.5 seconds, supports wakeup and cancels on shutdown', async () => {
     vi.useFakeTimers();
     MockWebSocket.mode = 'close';
-    const { closed } = start();
+    start();
     for (let i = 0; i < 8; i++) await vi.advanceTimersByTimeAsync(1501);
     expect(client.getReconnectMetadata().lastRetryDelayMs).toBeLessThanOrEqual(1500);
-    expect(closed).toHaveBeenCalled();
     const count = MockWebSocket.instances.length;
     client.nudgeReconnect('focus');
     expect(MockWebSocket.instances.length).toBeGreaterThan(count);

@@ -1,6 +1,5 @@
 export const PROTOCOL_VERSION = 1;
 export const MAX_MESSAGE_BYTES = 8 * 1024 * 1024;
-export const TRANSACTION_TIMEOUT_MS = 10_000;
 
 export async function signProof(token: string, message: string): Promise<string> {
   const key = await crypto.subtle.importKey(

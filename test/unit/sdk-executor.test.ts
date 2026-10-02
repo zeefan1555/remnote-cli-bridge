@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { SDK_CATALOG_HASH } from '../../src/api/sdk-capabilities.generated';
 import { describe, expect, it, vi } from 'vitest';
+import { Card, PluginRem } from '@remnote/plugin-sdk';
 import { executeSdkCall, getSdkCapabilities } from '../../src/api/sdk-executor';
 import { MockRemNotePlugin } from '../helpers/mocks';
 import { SETTING_ACCEPT_REPLACE_OPERATION, SETTING_PAIRING_TOKEN } from '../../src/settings';
@@ -11,6 +12,41 @@ const readOnly = async (mode: string) => {
 };
 
 describe('SDK executor', () => {
+  it('materializes native aliases as text values without Rem identities or methods', async () => {
+    const plugin = new MockRemNotePlugin();
+    const rem = plugin.addTestRem('r', 'Title');
+    const alias = Object.assign(Object.create(PluginRem.prototype), { text: ['Alias'] });
+    vi.spyOn(rem, 'getAliases').mockResolvedValue([alias]);
+    vi.spyOn(rem, 'getOrCreateAliasWithText').mockResolvedValue(alias);
+    for (const [capability, value] of [
+      ['rem:getAliases', [{ text: ['Alias'] }]],
+      ['rem:getOrCreateAliasWithText', { text: ['Alias'] }],
+    ] as const) {
+      await expect(
+        executeSdkCall(plugin as never, allow, { capability, targetId: 'r', args: [['Alias']] })
+      ).resolves.toEqual({ capability, value });
+      expect(getSdkCapabilities().capabilities.find((c) => c.id === capability)).toMatchObject({
+        materialize: 'aliasText',
+      });
+    }
+    vi.spyOn(rem, 'getAliases').mockResolvedValueOnce([Object.create(PluginRem.prototype)]);
+    await expect(
+      executeSdkCall(plugin as never, allow, { capability: 'rem:getAliases', targetId: 'r' })
+    ).rejects.toThrow('alias text');
+  });
+
+  it('rejects malformed official SDK objects with the originating capability', async () => {
+    const plugin = new MockRemNotePlugin();
+    for (const value of [Object.create(PluginRem.prototype), Object.create(Card.prototype)]) {
+      plugin.rem.findOne.mockResolvedValueOnce(value as never);
+      await expect(
+        executeSdkCall(plugin as never, allow, {
+          capability: 'namespace:rem.findOne',
+          args: ['r'],
+        })
+      ).rejects.toThrow(/namespace:rem.findOne.*identity/);
+    }
+  });
   it('does not expose pairing secrets or allow SDK callers to enable destructive operations', async () => {
     const plugin = new MockRemNotePlugin();
     for (const [capability, args] of [

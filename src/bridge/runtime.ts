@@ -11,7 +11,6 @@ import {
   type CompanionInfo,
 } from './websocket-client';
 import { PROTOCOL_VERSION } from './protocol';
-import { TransactionScope } from './transaction';
 import { registerBridgeRuntimeUiBridge } from '../widgets/runtime-ui-bridge';
 
 export interface LogEntry {
@@ -51,7 +50,6 @@ export const MAX_LOGS = 50;
 
 class BridgeRuntimeController implements BridgeRuntime {
   private client!: WebSocketClient;
-  private transaction: TransactionScope;
   private sessionToken = '';
   private companion?: CompanionInfo;
   private lastConnectedAt?: number;
@@ -67,7 +65,6 @@ class BridgeRuntimeController implements BridgeRuntime {
     private readonly plugin: ReactRNPlugin,
     private settings: AutomationBridgeSettings
   ) {
-    this.transaction = new TransactionScope(plugin);
     this.client = new WebSocketClient({
       url: settings.wsUrl,
       pluginVersion: __PLUGIN_VERSION__,
@@ -76,11 +73,6 @@ class BridgeRuntimeController implements BridgeRuntime {
         return this.sessionToken;
       },
       getIdentity: () => this.identity(),
-      onSessionClosed: () => this.transaction.abort(),
-      onSessionReady: async () => {
-        await this.transaction.close();
-        this.transaction = new TransactionScope(plugin);
-      },
       onStatusChange: (status) => {
         if (status === 'connected') this.lastConnectedAt = Date.now();
         this.emit();
@@ -104,13 +96,11 @@ class BridgeRuntimeController implements BridgeRuntime {
     this.client.setMessageHandler(async (request, assertSession) => {
       const authorize = async (mode: 'read' | 'write' | 'interactive' | 'destructive') => {
         assertSession();
-        this.transaction.assertUsable();
         const [settings, kb] = await Promise.all([
           readAutomationBridgeSettings(plugin),
           this.readKnowledgeBase(),
         ]);
         assertSession();
-        this.transaction.assertUsable();
         if (settings.pairingToken !== this.sessionToken)
           throw new Error('Pairing changed; start a new session');
         if (kb?._id !== request.knowledgeBaseId)
@@ -132,6 +122,7 @@ class BridgeRuntimeController implements BridgeRuntime {
             pluginId: manifest.id,
             sdkVersion: REMNOTE_SDK_VERSION,
             sdkCatalogHash: SDK_CATALOG_HASH,
+            nativeTransactions: false,
             ...(await this.identity()),
           };
         case 'get_sdk_capabilities':
@@ -139,15 +130,10 @@ class BridgeRuntimeController implements BridgeRuntime {
         case 'sdk_call':
           return executeSdkCall(plugin, authorize, request.payload as unknown as SdkCallParams);
         case 'transaction_begin':
-          await authorize('write');
-          await this.transaction.begin();
-          return { started: true };
         case 'transaction_end':
-          if (typeof request.payload.commit !== 'boolean')
-            throw new Error('Transaction commit must be boolean');
-          await authorize(request.payload.commit ? 'write' : 'read');
-          await this.transaction.end(request.payload.commit);
-          return { committed: request.payload.commit };
+          throw new Error(
+            'Native transactions are unavailable: SDK 0.0.46 cannot acknowledge abort. No transaction was opened.'
+          );
         default:
           throw new Error('Unknown SDK gateway action: ' + request.action);
       }
@@ -240,7 +226,6 @@ class BridgeRuntimeController implements BridgeRuntime {
   }
   shutdown(): void {
     this.stopped = true;
-    this.transaction.abort();
     this.client.disconnect();
     this.cleanup.forEach((f) => f());
     this.listeners.clear();

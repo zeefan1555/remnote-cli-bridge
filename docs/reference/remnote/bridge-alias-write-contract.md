@@ -3,6 +3,11 @@
 Aliases are real alternate names attached to a Rem through the RemNote SDK. They are not child bullets, tags, title
 suffixes, or inline references.
 
+Current native aliases are values, not Rem objects. The bridge materializes the
+SDK's `getAliases` and `getOrCreateAliasWithText` results as `{text}` snapshots,
+without invented IDs or callable Rem methods; the catalog declares `aliasText`.
+Recovery records keep the owning Rem ID, and creation verifies the returned text.
+
 These high-level operations are implemented in the companion CLI's `src/business/rem-adapter.ts`.
 The plugin provides the underlying official SDK calls; it does not own alias normalization or workflow policy.
 
@@ -20,9 +25,10 @@ Unicode content is otherwise preserved unchanged.
 `update_note.addAliases` and `update_note.removeAliases` are additive operations. Omitting both leaves aliases
 unchanged. Adding an existing normalized alias or removing a missing alias is an idempotent no-op.
 
-Removal matches normalized alias text exactly and removes every matching alias Rem. It never changes the primary
-title. The same normalized alias cannot appear in both operations because the intended final state would be
-ambiguous. A title change and alias changes execute in one RemNote transaction.
+The same normalized alias cannot appear in both operations because the intended final state would be
+ambiguous. Atomic title/alias updates are currently unavailable under
+[ADR 0003](../../../../../docs/adr/0003-disable-unsafe-native-transactions.md).
+New-note alias creation uses the additive recovery journal, not a transaction.
 
 ## Structural write isolation
 

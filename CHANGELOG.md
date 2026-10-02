@@ -7,6 +7,16 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed In 0.24.1
+
+- Remove cross-request native transactions: SDK 0.0.46 leaves rejected callbacks
+  unacknowledged, which can freeze the editor and prevent new CLI sessions.
+  Reject begin/end requests without opening a transaction; report the restriction.
+- Reject malformed SDK Rem/Card identities at serialization with the capability
+  name. Add a regression using the installed official SDK callback dispatcher.
+- Materialize native aliases as text-only values: current RemNote aliases have
+  no Rem identity. Keep ID validation for actual Rems and Cards.
+
 ### Changed
 
 - Move into `remnote-direct/packages/plugin`, with shared repository CI/ADRs and

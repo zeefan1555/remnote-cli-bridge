@@ -159,25 +159,26 @@ describe('SDK-only runtime', () => {
     }
   );
 
-  it('uses native transactions and aborts an unfinished transaction on shutdown', async () => {
+  it('rejects unsafe native scopes without blocking status or reconnection', async () => {
     plugin.setTestSetting(SETTING_ACCEPT_WRITE_OPERATIONS, true);
     const { ws, runtime } = await start();
-    expect(await request(ws, 'transaction_begin')).toMatchObject({ result: { started: true } });
-    expect(await request(ws, 'transaction_end', { commit: 'yes' })).toMatchObject({
-      error: expect.stringContaining('boolean'),
+    for (const action of ['transaction_begin', 'transaction_end']) {
+      expect(await request(ws, action, { commit: false })).toMatchObject({
+        error: expect.stringContaining('Native transactions are unavailable'),
+      });
+    }
+    expect(plugin.app.transaction).not.toHaveBeenCalled();
+    expect(await request(ws, 'get_status')).toMatchObject({
+      result: { connected: true, nativeTransactions: false },
     });
-    expect(await request(ws, 'transaction_end', { commit: true })).toMatchObject({
-      result: { committed: true },
-    });
-    expect(plugin.app.transaction).toHaveBeenCalledOnce();
-    await request(ws, 'transaction_begin');
-    const result = plugin.app.transaction.mock.results.at(-1)!.value;
-    const rejection = expect(result).rejects.toThrow('aborted');
+    runtime.reconnect();
+    const next = MockWebSocket.instances.at(-1)!;
+    await authenticate(next);
+    expect(await request(next, 'get_status')).toMatchObject({ result: { connected: true } });
     runtime.shutdown();
-    await rejection;
     runtime.reconnect();
     runtime.nudgeReconnect();
-    expect(MockWebSocket.instances).toHaveLength(1);
+    expect(MockWebSocket.instances).toHaveLength(2);
   });
 
   it('nudges reconnect on native activity and unregisters all listeners', async () => {

@@ -24,7 +24,7 @@ further writes. Native in-flight operations may still finish; no rollback or
 cancellation is inferred from a connection failure.
 
 Only one CLI session is admitted. Concurrent CLI invocations fail on the occupied
-port. A new plugin session waits for previous native work/transaction teardown.
+port. A new plugin session waits for prior individual SDK calls to settle.
 
 ## Retry And Recovery
 
@@ -44,9 +44,10 @@ desktop app. Never silently change network/security settings.
 
 ## Transactions
 
-A native transaction begins and ends within one authenticated session, with a
-10-second bound. Commit acknowledgement is mandatory. Timeout/disconnect aborts
-the callback, but native rollback must be tested rather than assumed.
+Native transactions are unavailable. SDK 0.0.46 does not acknowledge rejected
+callbacks, which can leave the editor blocked. Begin/end requests fail before any
+transaction opens. A disconnected or timed-out call never triggers a native abort.
+See [ADR 0003](../../../../docs/adr/0003-disable-unsafe-native-transactions.md).
 
 See the [CLI recovery guide](../../../cli/docs/guides/remnote-cli-troubleshooting.md)
 for uncertain writes.

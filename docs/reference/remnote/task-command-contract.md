@@ -8,7 +8,8 @@ Task composition belongs to the companion CLI, not to this plugin.
 - [Business implementation](../../../../cli/src/business/task-operations.ts)
 
 The plugin exposes only generated SDK methods and transport-level status,
-capabilities and transaction scopes. There are no `inspect_many`,
+capabilities. Native transactions are rejected under
+[ADR 0003](../../../../../docs/adr/0003-disable-unsafe-native-transactions.md). There are no `inspect_many`,
 `verify_scope`, `flashcards_apply` or `wiki_apply` gateway actions.
 
 Task preview, exact-ID/hash validation, local metadata journals, classification and

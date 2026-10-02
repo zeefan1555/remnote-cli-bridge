@@ -38,8 +38,6 @@ export interface WebSocketClientConfig {
   pluginVersion: string;
   getToken: () => Promise<string>;
   getIdentity: () => Promise<BridgeIdentity>;
-  onSessionClosed?: () => void;
-  onSessionReady?: () => void | Promise<void>;
   onStatusChange?: (status: ConnectionStatus) => void;
   onRetryPhaseChange?: (phase: RetryPhase) => void;
   onCompanionInfoChange?: (info: CompanionInfo | undefined) => void;
@@ -134,7 +132,6 @@ export class WebSocketClient {
             authenticated = true;
             clearTimeout(this.handshakeTimer);
             this.attempts = 0;
-            await this.config.onSessionReady?.();
             current();
             this.setStatus('connected');
             this.config.onCompanionInfoChange?.({ kind: 'cli', version: String(message.version) });
@@ -193,7 +190,6 @@ export class WebSocketClient {
       if (this.ws !== ws) return;
       clearTimeout(this.handshakeTimer);
       this.ws = null;
-      this.config.onSessionClosed?.();
       this.lastDisconnectReason = event.reason || String(event.code);
       this.config.onCompanionInfoChange?.(undefined);
       this.setStatus('disconnected');
@@ -220,7 +216,6 @@ export class WebSocketClient {
     this.stopped = true;
     clearTimeout(this.retry);
     clearTimeout(this.handshakeTimer);
-    this.config.onSessionClosed?.();
     const ws = this.ws;
     this.ws = null;
     ws?.close(1000, 'Command session ended');

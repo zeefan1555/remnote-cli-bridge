@@ -10,11 +10,11 @@ Shared repository guidance lives in [the root agent map](../../AGENTS.md).
 ## Ownership
 
 The plugin owns the official SDK, generated public allowlist, JSON serialization,
-mutual authentication, KB binding, live permission checks and bounded native
-transactions. CLI business behavior lives in the companion's `src/business/`.
+mutual authentication, KB binding and live permission checks. Native transactions
+are disabled by shared ADR 0003. CLI business behavior lives in the companion's `src/business/`.
 
 The complete gateway action surface is `get_status`,
-`get_sdk_capabilities`, `sdk_call`, `transaction_begin` and `transaction_end`.
+`get_sdk_capabilities` and `sdk_call`; transaction begin/end requests explicitly fail.
 No MCP transport, business action dispatcher, developer-console executor,
 compatibility shim or matching product version is maintained.
 
@@ -24,7 +24,6 @@ compatibility shim or matching product version is maintained.
 - `src/bridge/runtime.ts`: authenticated SDK gateway and live authorization.
 - `src/bridge/websocket-client.ts`: loopback sessions, request deadlines and retry.
 - `src/bridge/protocol.ts`: mutual proof and wire limits.
-- `src/bridge/transaction.ts`: 10-second native transaction scope.
 - `src/api/sdk-executor.ts`: allowlisted invocation and bounded serialization.
 - `src/api/sdk-capabilities.generated.ts`: generated SDK catalog.
 - `src/settings.ts`, `public/manifest.json`: gates, pairing and official scopes.

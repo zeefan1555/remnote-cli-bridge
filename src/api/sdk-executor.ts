@@ -92,6 +92,10 @@ function definedEntries(value: JsonObject): JsonObject {
 }
 
 function sdkRemToObject(rem: PluginRem): JsonObject {
+  if (typeof rem._id !== 'string' || !rem._id)
+    throw new Error(
+      `Invalid SDK Rem identity (id type: ${typeof rem._id}, text type: ${Array.isArray(rem.text) ? 'array' : typeof rem.text})`
+    );
   return definedEntries({
     $type: 'rem',
     id: rem._id,
@@ -106,7 +110,15 @@ function sdkRemToObject(rem: PluginRem): JsonObject {
   });
 }
 
+function sdkAliasToObject(alias: unknown): JsonObject {
+  if (!alias || typeof alias !== 'object' || !('text' in alias) || !Array.isArray(alias.text))
+    throw new Error('Invalid SDK alias text');
+  return { text: alias.text };
+}
+
 function sdkCardToObject(card: Card): JsonObject {
+  if (typeof card._id !== 'string' || !card._id || typeof card.remId !== 'string' || !card.remId)
+    throw new Error('Invalid SDK Card identity');
   return definedEntries({
     $type: 'card',
     id: card._id,
@@ -379,5 +391,18 @@ export async function executeSdkCall(
     value = await value.value();
   }
   await authorize('read');
-  return { capability: capability.id, value: serializeSdkValue(value) };
+  try {
+    if ('materialize' in capability && capability.materialize === 'aliasText') {
+      if (capability.method === 'getAliases') {
+        if (!Array.isArray(value)) throw new Error('Invalid SDK alias text collection');
+        value = value.map(sdkAliasToObject);
+      } else if (value !== undefined) value = sdkAliasToObject(value);
+    }
+    return { capability: capability.id, value: serializeSdkValue(value) };
+  } catch (error) {
+    throw new Error(
+      `${capability.id}: ${error instanceof Error ? error.message : String(error)}; verify write outcome before retry`,
+      { cause: error }
+    );
+  }
 }

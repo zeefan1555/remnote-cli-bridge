@@ -1,10 +1,14 @@
 {
   "private": true,
   "name": "remnote-sdk-bridge",
-  "version": "0.24.0",
+  "version": "0.24.1",
   "license": "MIT",
   "author": "zeefan1555",
-  "contributors": ["RemNote", "Quentin Tousart", "Robert Spiegel"],
+  "contributors": [
+    "RemNote",
+    "Quentin Tousart",
+    "Robert Spiegel"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/zeefan1555/remnote-direct.git",
