@@ -28,7 +28,7 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- Pin the package-local npm registry and check lockfile URLs so future installs
+- Pin repository/package npm registries and check lockfile URLs so future installs
   do not inherit a developer's private registry.
 - Validate the plugin package through the public SDK manifest parser; the SDK's
   standalone validator assumes that the plugin directory is the Git root.

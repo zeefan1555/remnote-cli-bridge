@@ -4,7 +4,9 @@ import { describe, expect, it } from 'vitest';
 
 describe('project config', () => {
   it('uses public registry tarballs so CI does not require a private network', () => {
-    expect(readFileSync('.npmrc', 'utf8').trim()).toBe('registry=https://registry.npmjs.org/');
+    for (const config of ['.npmrc', '../../.npmrc']) {
+      expect(readFileSync(config, 'utf8').trim()).toBe('registry=https://registry.npmjs.org/');
+    }
     const lock = JSON.parse(readFileSync('package-lock.json', 'utf8')) as {
       packages: Record<string, { resolved?: string }>;
     };
