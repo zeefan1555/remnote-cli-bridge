@@ -47,7 +47,9 @@ Mocks do not prove native persistence or transaction rollback.
 Live verification requires explicit human authorization and a real RemNote
 session. Reload changed plugin assets through Computer Use, subject to its
 confirmation policy. Install the independent `zeefan-remnote-sdk-bridge` identity
-in RemNote desktop and verify actual scope grants. All live commands use the sibling guarded wrapper:
+in RemNote desktop and verify actual scope grants. Daily operations and installed-command
+smoke checks use the registered `remnote-cli` directly. Development integration suites
+use the sibling guarded wrapper:
 
 ```bash
 ../cli/run-agent-integration-test.sh --preflight-only
@@ -58,9 +60,10 @@ in RemNote desktop and verify actual scope grants. All live commands use the sib
 
 The wrapper refuses occupied ports. Never stop unknown listeners. With explicit
 full-operation authority, record/stop/restore only a confirmed project-owned old
-companion. For the approved local adoption, retain the new plugin/CLI on success
-and leave the old plugin disabled and MCP service stopped. Restore recorded prior
-assets/settings only on failure; ordinary temporary tests still restore them. Preserve
+companion. The maintainer separately authorized local registration and ongoing use;
+retain the new plugin/CLI on successful installation/smoke, with the old plugin and
+MCP autostart disabled. Native rollback remains failed. Restore recorded prior
+assets/settings on installation failure; temporary tests still restore them. Preserve
 plans and exact IDs after uncertain writes; never blind-retry or access the
 RemNote database.
 
@@ -75,5 +78,5 @@ The retained [fork adoption workflow](docs/workflows/pr-validation-and-adoption.
 is historical guidance for the original forks, not this repository's delivery
 contract. Do not modify those forks or their PRs. Commit and push to this
 independent repository are now explicitly authorized. Package publication is not
-authorized; daily installation requires all native acceptance gates. Preserve
-existing dirty work and upstream licenses.
+authorized. Local registration follows the shared ADR amendment and does not
+establish full native acceptance. Preserve existing dirty work and upstream licenses.
