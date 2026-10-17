@@ -103,7 +103,7 @@ function startStaticServer(options = {}) {
   const root = path.resolve(options.root || DEFAULT_ROOT);
   const port = Number(options.port ?? process.env.PORT ?? DEFAULT_PORT);
   const host = options.host || DEFAULT_HOST;
-  const label = options.label || 'remnote-sdk-bridge';
+  const label = options.label || 'remnote-cli-bridge';
   const logger = options.logger || console;
   const server = createStaticServer({ root });
 

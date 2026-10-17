@@ -16,7 +16,8 @@ before changing it. The file-only host must remain available across desktop rest
 
 In **RemNote desktop**, open **Settings > Plugins > Build**, choose the local
 development option and enter `http://localhost:8090/`. Verify the manifest ID is
-`zeefan-remnote-sdk-bridge` and install it independently of the old MCP plugin.
+`remnote-cli-bridge` and install it independently of the old MCP plugin and of
+the previous `zeefan-remnote-sdk-bridge` id.
 Use the literal `localhost` URL here: the desktop installer can register the
 numeric loopback URL as a non-local plugin without loading its local widgets.
 The asset host still binds only to `127.0.0.1`. Confirm the installed plugin is
@@ -25,7 +26,7 @@ Approve both `All: ReadCreateModifyDelete` and `KnowledgeBaseInfo: Read`;
 content access alone does not include knowledge-base identity. A new plugin ID
 has separate settings, so its pairing token and write gate must be set explicitly.
 
-Pair the [CLI](../../../cli/docs/guides/installation.md) with the
+Pair the [CLI](https://github.com/zeefan1555/remnote-cli/blob/master/docs/guides/installation.md) with the
 intended KB. Set **CLI pairing token** from the private pairing file, use the
 matching loopback WebSocket port, and enable writes only when authorized.
 The token is private; never put it in screenshots, logs or issue reports.
@@ -36,10 +37,12 @@ After a source or WebSocket URL change, reload the plugin before testing. A
 manifest/permission change must also be applied to the installed plugin; reloading
 JavaScript alone does not grant new scopes.
 
+From a checkout of https://github.com/zeefan1555/remnote-cli:
+
 ```bash
-../cli/run-agent-integration-test.sh --preflight-only
-../cli/run-agent-integration-test.sh --yes --command status --text
-../cli/run-agent-integration-test.sh --yes --transactions-only
+./run-agent-integration-test.sh --preflight-only
+./run-agent-integration-test.sh --yes --command status --text
+./run-agent-integration-test.sh --yes --transactions-only
 ```
 
 Keep the RemNote session open. The sidebar normally says **Waiting for CLI**
@@ -51,8 +54,8 @@ environment afterward. The approved local adoption instead retains the new
 plugin/CLI on success and restores the recorded environment only on failure.
 
 Daily local hosting uses a verified copy of `dist/` and `scripts/serve-dist.js`
-under `~/.local/share/remnote-sdk-bridge/`, served by the user LaunchAgent
-`com.remnote.sdk-bridge-assets` on `127.0.0.1:8090`. Configure `RunAtLoad`,
+under `~/.local/share/remnote-cli-bridge/`, served by the user LaunchAgent
+`com.remnote.cli-bridge-assets` on `127.0.0.1:8090`. Configure `RunAtLoad`,
 `KeepAlive`, an absolute Node path and absolute asset/script paths. The host
 directory must not contain pairing config, source checkout or private evidence.
 Before acceptance, restart this host and RemNote, then re-read the exact card

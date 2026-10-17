@@ -3,7 +3,7 @@
 The RemNote plugin cannot listen on a local TCP port, so it connects outward:
 
 ```text
-RemNote SDK Bridge -> loopback listener owned by the current CLI command
+RemNote CLI Bridge -> loopback listener owned by the current CLI command
 ```
 
 There is no resident automation daemon. A plugin waiting between commands is
@@ -14,7 +14,17 @@ healthy; **CLI connected** is expected only while a command is running.
 1. Plugin activation starts background connection attempts.
 2. The CLI binds `127.0.0.1` on the paired port.
 3. Fresh HMAC challenges authenticate both peers. The secret is never sent.
+   The CLI sends `challenge` with protocol 1, a 64-hex nonce, and a proof of
+   `cli:<nonce>`. The plugin answers with `hello`. `hello.identity` contains
+   `protocolVersion`, `pluginVersion`, `sdkVersion`, `sdkCatalogHash`,
+   `knowledgeBaseId`, `knowledgeBaseName`, `acceptWriteOperations`, and
+   `acceptReplaceOperation`. The plugin id is not part of that handshake.
+   The plugin proof is `plugin:<nonce>:<JSON identity>`. The CLI then sends
+   `ready`. Protocol version stays 1.
 4. The CLI requires the intended KB, protocol 1 and a valid live SDK catalog.
+   `get_status` returns `pluginId` from the manifest, now `remnote-cli-bridge`.
+   A CLI that only displays that field needs no protocol change. A CLI that
+   requires `zeefan-remnote-sdk-bridge` must accept `remnote-cli-bridge`.
 5. Requests use exact IDs, KB binding and deadlines.
 6. Command completion closes the listener and socket; the plugin waits again.
 
@@ -53,7 +63,7 @@ desktop app. Never silently change network/security settings.
 Native transactions are unavailable. SDK 0.0.46 does not acknowledge rejected
 callbacks, which can leave the editor blocked. Begin/end requests fail before any
 transaction opens. A disconnected or timed-out call never triggers a native abort.
-See [ADR 0003](../../../../docs/adr/0003-disable-unsafe-native-transactions.md).
+See [ADR 0003](../adr/0003-disable-unsafe-native-transactions.md).
 
-See the [CLI recovery guide](../../../cli/docs/guides/remnote-cli-troubleshooting.md)
+See the [CLI recovery guide](https://github.com/zeefan1555/remnote-cli/blob/master/docs/guides/remnote-cli-troubleshooting.md)
 for uncertain writes.

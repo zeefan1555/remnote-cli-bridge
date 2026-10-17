@@ -1,15 +1,18 @@
 {
   "manifestVersion": 1,
-  "id": "zeefan-remnote-sdk-bridge",
-  "name": "RemNote SDK Bridge",
+  "id": "remnote-cli-bridge",
+  "name": "RemNote CLI Bridge",
   "author": "zeefan1555",
   "description": "Authenticated local access to the official RemNote Plugin SDK for remnote-cli.",
   "version": {
     "major": 0,
-    "minor": 24,
-    "patch": 1
+    "minor": 25,
+    "patch": 0
   },
-  "repoUrl": "https://github.com/zeefan1555/remnote-direct",
+  "repoUrl": "https://github.com/zeefan1555/remnote-cli-bridge",
+  "projectUrl": "https://github.com/zeefan1555/remnote-cli-bridge",
+  "supportUrl": "https://github.com/zeefan1555/remnote-cli-bridge/issues",
+  "changelogUrl": "https://github.com/zeefan1555/remnote-cli-bridge/blob/master/CHANGELOG.md",
   "enableOnMobile": false,
   "requestNative": false,
   "requiredScopes": [

@@ -6,13 +6,15 @@ import { resolve } from 'node:path';
 
 describe('package bin metadata', () => {
   it('exposes the local production server executable', () => {
+    expect(packageJson.name).toBe('remnote-cli-bridge');
+    expect(packageJson.version).toBe('0.25.0');
     expect(packageJson.bin).toEqual({
-      'remnote-sdk-bridge': './bin/remnote-sdk-bridge.js',
+      'remnote-cli-bridge': './bin/remnote-cli-bridge.js',
     });
   });
 
   it('points the bridge bin metadata at an executable Node wrapper', () => {
-    const binPath = packageJson.bin['remnote-sdk-bridge'];
+    const binPath = packageJson.bin['remnote-cli-bridge'];
     const stats = statSync(binPath);
     const firstLine = readFileSync(binPath, 'utf8').split('\n')[0];
 
@@ -22,7 +24,7 @@ describe('package bin metadata', () => {
   });
 
   it('executes the bridge bin version command', () => {
-    const result = spawnSync(process.execPath, ['bin/remnote-sdk-bridge.js', '--version'], {
+    const result = spawnSync(process.execPath, ['bin/remnote-cli-bridge.js', '--version'], {
       cwd: process.cwd(),
       encoding: 'utf8',
     });
@@ -47,9 +49,9 @@ describe('package bin metadata', () => {
     expect(packageJson.dependencies['@remnote/plugin-sdk']).toBeDefined();
   });
 
-  it('validates the plugin package when invoked from the shared repository root', () => {
+  it('validates the plugin package from the repository root', () => {
     const result = spawnSync(process.execPath, [resolve('scripts/validate-plugin.js')], {
-      cwd: resolve('../..'),
+      cwd: resolve('.'),
       encoding: 'utf8',
     });
 
