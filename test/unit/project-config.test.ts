@@ -4,9 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 describe('project config', () => {
   it('uses public registry tarballs so CI does not require a private network', () => {
-    for (const config of ['.npmrc', '../../.npmrc']) {
-      expect(readFileSync(config, 'utf8').trim()).toBe('registry=https://registry.npmjs.org/');
-    }
+    expect(readFileSync('.npmrc', 'utf8').trim()).toBe('registry=https://registry.npmjs.org/');
     const lock = JSON.parse(readFileSync('package-lock.json', 'utf8')) as {
       packages: Record<string, { resolved?: string }>;
     };
@@ -21,8 +19,15 @@ describe('project config', () => {
     const manifest = JSON.parse(readFileSync('public/manifest.json', 'utf8'));
 
     expect(parseManifest(manifest).success).toBe(true);
-    expect(manifest.id).toBe('zeefan-remnote-sdk-bridge');
-    expect(manifest.name).toBe('RemNote SDK Bridge');
+    expect(manifest.id).toBe('remnote-cli-bridge');
+    expect(manifest.name).toBe('RemNote CLI Bridge');
+    expect(manifest.version).toEqual({ major: 0, minor: 25, patch: 0 });
+    expect(manifest.repoUrl).toBe('https://github.com/zeefan1555/remnote-cli-bridge');
+    expect(manifest.projectUrl).toBe('https://github.com/zeefan1555/remnote-cli-bridge');
+    expect(manifest.supportUrl).toBe('https://github.com/zeefan1555/remnote-cli-bridge/issues');
+    expect(manifest.changelogUrl).toBe(
+      'https://github.com/zeefan1555/remnote-cli-bridge/blob/master/CHANGELOG.md'
+    );
     expect(manifest.requiredScopes).toContainEqual({
       type: 'All',
       level: 'ReadCreateModifyDelete',

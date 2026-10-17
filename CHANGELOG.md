@@ -7,6 +7,15 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-10-17
+
+### Changed
+
+- Rename the plugin to RemNote CLI Bridge. The npm package name, the `remnote-cli-bridge` executable, and the RemNote plugin id are `remnote-cli-bridge` (previously `remnote-sdk-bridge` / `zeefan-remnote-sdk-bridge`). The repository is https://github.com/zeefan1555/remnote-cli-bridge. Install this id separately and approve its scopes again; grants on the previous id do not transfer.
+- Record marketplace `projectUrl`, `supportUrl` (GitHub issues), and `changelogUrl` in the manifest. Official SDK 0.0.46 accepts those optional fields.
+- Split this plugin out of the remnote-direct monorepo. The companion CLI is https://github.com/zeefan1555/remnote-cli. This repository root is the plugin.
+- Keep bridge protocol 1 unchanged. The handshake (`challenge`, `hello`, `ready`) does not include the plugin id, and the HMAC inputs stay `cli:<nonce>` and `plugin:<nonce>:<JSON hello>`. `get_status` still returns `pluginId`; that string is now `remnote-cli-bridge`. A CLI build that requires the previous id must accept `remnote-cli-bridge`. A CLI that only displays the field needs no protocol change.
+
 ### Fixed In 0.24.1
 
 - Remove cross-request native transactions: SDK 0.0.46 leaves rejected callbacks

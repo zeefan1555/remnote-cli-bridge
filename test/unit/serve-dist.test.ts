@@ -39,7 +39,7 @@ afterEach(() => {
 });
 
 function createFixtureRoot() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'remnote-sdk-bridge-dist-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'remnote-cli-bridge-dist-'));
   tmpDirs.push(root);
   fs.writeFileSync(path.join(root, 'index.html'), '<html>ok</html>');
   fs.writeFileSync(path.join(root, 'widget.js'), 'console.log("ok");');
@@ -191,7 +191,7 @@ describe('serve-dist static server', () => {
     await close(server);
 
     expect(messages[0]).toMatch(
-      /\[remnote-sdk-bridge\] static server listening on http:\/\/127\.0\.0\.1:\d+/
+      /\[remnote-cli-bridge\] static server listening on http:\/\/127\.0\.0\.1:\d+/
     );
     expect(messages[0]).not.toContain(':0');
   });

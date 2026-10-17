@@ -41,7 +41,7 @@ describe('connection sidebar', () => {
           status: 'connected',
           retryPhase: 'idle',
           bridgeVersion: 'test',
-          pluginId: 'zeefan-remnote-sdk-bridge',
+          pluginId: 'remnote-cli-bridge',
           protocolVersion: 1,
           sdkVersion: '0.0.46',
           knowledgeBaseId: 'test-kb',
@@ -56,7 +56,8 @@ describe('connection sidebar', () => {
         });
       });
       expect(container.textContent).toContain('CLI connected');
-      expect(container.textContent).toContain('zeefan-remnote-sdk-bridge');
+      expect(container.textContent).toContain('RemNote CLI Bridge');
+      expect(container.textContent).toContain('remnote-cli-bridge');
       expect(container.textContent).toContain('1 / 0.0.46');
       expect(container.textContent).toContain('Test KB (test-kb)');
       expect(container.querySelector('[role="alert"]')?.textContent).toBe('Read denied');

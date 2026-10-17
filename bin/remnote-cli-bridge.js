@@ -10,8 +10,8 @@ if (args.includes('--version') || args.includes('-v')) {
   console.log(version);
 } else {
   runCli(args, {
-    commandName: 'remnote-sdk-bridge',
+    commandName: 'remnote-cli-bridge',
     defaultRoot: path.resolve(__dirname, '..', 'dist'),
-    label: 'remnote-sdk-bridge',
+    label: 'remnote-cli-bridge',
   });
 }

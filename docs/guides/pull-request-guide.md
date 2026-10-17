@@ -12,15 +12,14 @@ Changes to the wire protocol, authentication, KB binding, SDK serialization or
 generated capability metadata require coordinated contracts and tests in both
 repositories. Link companion PRs when those shared boundaries change.
 
-Use [the repository template](../../.github/pull_request_template.md), update the
-affected documentation and changelog, and retain contributor attribution.
+Update the affected documentation and changelog, and retain contributor attribution.
 Protocol/catalog compatibility does not require matching product versions.
 
 ## Validation
 
 Run each affected repository's quality checks, generated-file freshness check,
 production build and diff check. Test real plugin/CLI interactions through the
-[guarded integration wrapper](../../../cli/docs/guides/integration-testing.md)
+[guarded integration wrapper](https://github.com/zeefan1555/remnote-cli/blob/master/docs/guides/integration-testing.md)
 after explicit live-test authorization. Record exact IDs, readback, replay and
 unverified boundaries. Mocks do not prove native RemNote persistence.
 

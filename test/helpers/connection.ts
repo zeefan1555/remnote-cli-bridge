@@ -17,6 +17,7 @@ export async function authenticate(ws: MockWebSocket, token = TEST_TOKEN): Promi
   await vi.waitFor(() => expect(ws.sentMessages.length).toBeGreaterThan(0));
   const hello = JSON.parse(ws.sentMessages[0]);
   expect(hello.type).toBe('hello');
+  expect(hello.identity.pluginId).toBeUndefined();
   expect(hello.proof).toBe(sign(token, 'plugin:' + NONCE + ':' + JSON.stringify(hello.identity)));
   expect(JSON.stringify(hello)).not.toContain(token);
   ws.simulateMessage({ type: 'ready', protocolVersion: 1, version: 'arbitrary-cli-version' });

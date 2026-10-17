@@ -1,7 +1,7 @@
 {
   "private": true,
-  "name": "remnote-sdk-bridge",
-  "version": "0.24.1",
+  "name": "remnote-cli-bridge",
+  "version": "0.25.0",
   "license": "MIT",
   "author": "zeefan1555",
   "contributors": [
@@ -11,11 +11,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/zeefan1555/remnote-direct.git",
-    "directory": "packages/plugin"
+    "url": "git+https://github.com/zeefan1555/remnote-cli-bridge.git"
   },
   "bin": {
-    "remnote-sdk-bridge": "./bin/remnote-sdk-bridge.js"
+    "remnote-cli-bridge": "./bin/remnote-cli-bridge.js"
   },
   "engines": {
     "node": ">=20.19.0"

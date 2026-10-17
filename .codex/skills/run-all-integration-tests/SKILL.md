@@ -10,7 +10,7 @@ The RemNote bridge has already been started by the human collaborator.
 Read `AGENTS.md` and run the full live integration test flow exactly according to its Integration and Live Validation
 Policy.
 
-Use `../cli` as the command working directory, then run the canonical agent integration runner there,
+Use a checkout of https://github.com/zeefan1555/remnote-cli as the command working directory, then run the canonical agent integration runner there,
 including the required preflight. Do not substitute lower-level integration runners.
 
 Report:

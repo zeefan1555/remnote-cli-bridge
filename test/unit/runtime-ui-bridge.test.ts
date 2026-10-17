@@ -17,7 +17,7 @@ describe('sidebar runtime channel', () => {
       status: 'connected',
       retryPhase: 'idle',
       bridgeVersion: 'test',
-      pluginId: 'zeefan-remnote-sdk-bridge',
+      pluginId: 'remnote-cli-bridge',
       protocolVersion: 1,
       sdkVersion: '0.0.46',
       wsUrl: 'ws://127.0.0.1:3002',

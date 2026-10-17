@@ -43,14 +43,14 @@ describe('SDK-only runtime', () => {
       result: {
         connected: true,
         protocolVersion: 1,
-        pluginId: 'zeefan-remnote-sdk-bridge',
+        pluginId: 'remnote-cli-bridge',
         sdkVersion: '0.0.46',
         knowledgeBaseId: 'test-kb',
         acceptWriteOperations: false,
       },
     });
     expect(runtime.getSnapshot()).toMatchObject({
-      pluginId: 'zeefan-remnote-sdk-bridge',
+      pluginId: 'remnote-cli-bridge',
       protocolVersion: 1,
       sdkVersion: '0.0.46',
       knowledgeBaseId: 'test-kb',

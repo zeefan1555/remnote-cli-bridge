@@ -2,14 +2,14 @@
 
 Task composition belongs to the companion CLI, not to this plugin.
 
-- [Read receipts](../../../../cli/docs/guides/read-receipts.md)
-- [Preview-first task plans](../../../../cli/docs/guides/task-plans.md)
-- [Task schemas](../../../../cli/src/schemas/task-schemas.ts)
-- [Business implementation](../../../../cli/src/business/task-operations.ts)
+- [Read receipts](https://github.com/zeefan1555/remnote-cli/blob/master/docs/guides/read-receipts.md)
+- [Preview-first task plans](https://github.com/zeefan1555/remnote-cli/blob/master/docs/guides/task-plans.md)
+- [Task schemas](https://github.com/zeefan1555/remnote-cli/blob/master/src/schemas/task-schemas.ts)
+- [Business implementation](https://github.com/zeefan1555/remnote-cli/blob/master/src/business/task-operations.ts)
 
 The plugin exposes only generated SDK methods and transport-level status,
 capabilities. Native transactions are rejected under
-[ADR 0003](../../../../../docs/adr/0003-disable-unsafe-native-transactions.md). There are no `inspect_many`,
+[ADR 0003](../../adr/0003-disable-unsafe-native-transactions.md). There are no `inspect_many`,
 `verify_scope`, `flashcards_apply` or `wiki_apply` gateway actions.
 
 Task preview, exact-ID/hash validation, local metadata journals, classification and

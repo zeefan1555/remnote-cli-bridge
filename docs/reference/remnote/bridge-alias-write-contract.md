@@ -8,7 +8,7 @@ SDK's `getAliases` and `getOrCreateAliasWithText` results as `{text}` snapshots,
 without invented IDs or callable Rem methods; the catalog declares `aliasText`.
 Recovery records keep the owning Rem ID, and creation verifies the returned text.
 
-These high-level operations are implemented in the companion CLI's `src/business/rem-adapter.ts`.
+These high-level operations are implemented in the companion CLI's [`src/business/rem-adapter.ts`](https://github.com/zeefan1555/remnote-cli/blob/master/src/business/rem-adapter.ts).
 The plugin provides the underlying official SDK calls; it does not own alias normalization or workflow policy.
 
 ## Create semantics
@@ -27,7 +27,7 @@ unchanged. Adding an existing normalized alias or removing a missing alias is an
 
 The same normalized alias cannot appear in both operations because the intended final state would be
 ambiguous. Atomic title/alias updates are currently unavailable under
-[ADR 0003](../../../../../docs/adr/0003-disable-unsafe-native-transactions.md).
+[ADR 0003](../../adr/0003-disable-unsafe-native-transactions.md).
 New-note alias creation uses the additive recovery journal, not a transaction.
 
 ## Structural write isolation
