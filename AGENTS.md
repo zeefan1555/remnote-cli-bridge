@@ -7,6 +7,10 @@ Shared repository guidance lives in [the root agent map](../../AGENTS.md).
 ../cli (CLI) <-> loopback WebSocket <-> plugin <-> official SDK
 ```
 
+## Design principle
+
+The SDK bridge plugin exposes only atomic RemNote SDK capabilities (one SDK method per bridge call, args passed through unchanged). It must not contain composition, translation, workarounds or business logic, and should rarely change. All composite commands, argument normalization (e.g. powerup slot code→name), retries, verification and workflow-specific logic live in the CLI, which composes multiple atomic plugin calls.
+
 ## Ownership
 
 The plugin owns the official SDK, generated public allowlist, JSON serialization,
