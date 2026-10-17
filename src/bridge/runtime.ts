@@ -1,9 +1,17 @@
 declare const __PLUGIN_VERSION__: string;
-import { FocusEvents, WindowEvents, type ReactRNPlugin } from '@remnote/plugin-sdk';
+import { FocusEvents, SettingEvents, WindowEvents, type ReactRNPlugin } from '@remnote/plugin-sdk';
 import manifest from '../../public/manifest.json';
 import { REMNOTE_SDK_VERSION, SDK_CATALOG_HASH } from '../api/sdk-capabilities.generated';
 import { executeSdkCall, getSdkCapabilities, type SdkCallParams } from '../api/sdk-executor';
-import { readAutomationBridgeSettings, type AutomationBridgeSettings } from '../settings';
+import {
+  readAutomationBridgeSettings,
+  SETTING_ACCEPT_REPLACE_OPERATION,
+  SETTING_ACCEPT_WRITE_OPERATIONS,
+  SETTING_PAIRING_TOKEN,
+  SETTING_WS_URL,
+  type AutomationBridgeSettings,
+} from '../settings';
+import { createAccessCheckCache } from './access-check';
 import {
   WebSocketClient,
   type ConnectionStatus,
@@ -59,6 +67,7 @@ class BridgeRuntimeController implements BridgeRuntime {
   private authorizationError?: string;
   private readonly listeners = new Set<(snapshot: BridgeRuntimeSnapshot) => void>();
   private readonly cleanup: Array<() => void> = [];
+  private readonly access = createAccessCheckCache(() => this.loadAccess());
   private stopped = false;
 
   constructor(
@@ -96,14 +105,11 @@ class BridgeRuntimeController implements BridgeRuntime {
     this.client.setMessageHandler(async (request, assertSession) => {
       const authorize = async (mode: 'read' | 'write' | 'interactive' | 'destructive') => {
         assertSession();
-        const [settings, kb] = await Promise.all([
-          readAutomationBridgeSettings(plugin),
-          this.readKnowledgeBase(),
-        ]);
+        const { settings, knowledgeBaseId } = await this.access.get();
         assertSession();
         if (settings.pairingToken !== this.sessionToken)
           throw new Error('Pairing changed; start a new session');
-        if (kb?._id !== request.knowledgeBaseId)
+        if (knowledgeBaseId !== request.knowledgeBaseId)
           throw new Error('Knowledge base changed; writes stopped');
         if (mode !== 'read' && !settings.acceptWriteOperations)
           throw new Error('Write operations are disabled');
@@ -139,6 +145,13 @@ class BridgeRuntimeController implements BridgeRuntime {
       }
     });
   }
+  private async loadAccess() {
+    const [settings, kb] = await Promise.all([
+      readAutomationBridgeSettings(this.plugin),
+      this.readKnowledgeBase(),
+    ]);
+    return { settings, knowledgeBaseId: kb._id };
+  }
   private async readKnowledgeBase() {
     try {
       const kb = await this.plugin.kb.getCurrentKnowledgeBaseData();
@@ -171,6 +184,22 @@ class BridgeRuntimeController implements BridgeRuntime {
   }
   start(): void {
     this.cleanup.push(registerBridgeRuntimeUiBridge({ plugin: this.plugin, runtime: this }));
+    // SDK 0.0.46 keys SettingChanged by setting id and only notifies an exact listenerKey.
+    // There is no knowledge-base change event.
+    const invalidateAccess = () => this.access.invalidate();
+    const settingIds = [
+      undefined,
+      SETTING_ACCEPT_WRITE_OPERATIONS,
+      SETTING_ACCEPT_REPLACE_OPERATION,
+      SETTING_PAIRING_TOKEN,
+      SETTING_WS_URL,
+    ];
+    for (const settingId of settingIds) {
+      this.plugin.event.addListener(SettingEvents.SettingChanged, settingId, invalidateAccess);
+      this.cleanup.push(() =>
+        this.plugin.event.removeListener(SettingEvents.SettingChanged, settingId, invalidateAccess)
+      );
+    }
     for (const event of [FocusEvents.FocusedRemChange, WindowEvents.FocusedPaneChange]) {
       const callback = () => this.nudgeReconnect('activity');
       this.plugin.event.addListener(event, undefined, callback);

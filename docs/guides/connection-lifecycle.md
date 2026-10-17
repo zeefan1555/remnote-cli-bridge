@@ -18,13 +18,19 @@ healthy; **CLI connected** is expected only while a command is running.
 5. Requests use exact IDs, KB binding and deadlines.
 6. Command completion closes the listener and socket; the plugin waits again.
 
-The plugin rereads pairing and live permissions, and checks the current KB before
-SDK execution. A token change, KB switch, expired deadline or closed socket stops
-further writes. Native in-flight operations may still finish; no rollback or
+The plugin checks pairing, live permissions and the current KB before and after
+each SDK call. Concurrent checks share one read, and a successful read is reused
+for at most 100ms. A change to a bridge setting drops that cache immediately. SDK 0.0.46 has
+no knowledge-base change event, so a KB switch is observed on the next check after
+the cache expires. A token change, KB switch, expired deadline or closed socket
+stops further writes. Native in-flight operations may still finish; no rollback or
 cancellation is inferred from a connection failure.
 
 Only one CLI session is admitted. Concurrent CLI invocations fail on the occupied
-port. A new plugin session waits for prior individual SDK calls to settle.
+port. Up to 16 validated requests run at once. Frame parsing, the handshake, ping
+and request validation stay ordered, and each response carries its request id. A
+handler failure answers only that request. A new plugin session waits for prior
+individual SDK calls to settle and does not write on the closed socket.
 
 ## Retry And Recovery
 

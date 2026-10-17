@@ -19,6 +19,14 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Run up to 16 validated bridge requests at once. Handshake, ping and request
+  validation stay ordered; responses match request ids, and a handler error answers
+  only that request. A new session still waits for prior SDK calls and does not
+  send on the closed socket.
+- Share the settings and knowledge-base permission read across concurrent callers
+  and reuse a success for at most 100ms. `SettingChanged` for a bridge setting id
+  drops the cache immediately. SDK 0.0.46 has no knowledge-base change event. The pre-call and
+  post-call checks remain; the extra check before target lookup does not.
 - Move into `remnote-direct/packages/plugin`, with shared repository CI/ADRs and
   independent locked dependencies. Preserve the plugin ID, SDK contract,
   upstream attribution and failed native rollback acceptance gate.

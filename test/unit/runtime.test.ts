@@ -1,4 +1,4 @@
-import { FocusEvents, WindowEvents } from '@remnote/plugin-sdk';
+import { FocusEvents, SettingEvents, WindowEvents } from '@remnote/plugin-sdk';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import {
   initializeBridgeRuntime,
@@ -12,7 +12,9 @@ import {
   SETTING_PAIRING_TOKEN,
   SETTING_ACCEPT_WRITE_OPERATIONS,
   SETTING_ACCEPT_REPLACE_OPERATION,
+  SETTING_WS_URL,
 } from '../../src/settings';
+import { ACCESS_CHECK_TTL_MS } from '../../src/bridge/access-check';
 
 let plugin: MockRemNotePlugin;
 beforeEach(() => {
@@ -140,10 +142,23 @@ describe('SDK-only runtime', () => {
       const mutate = vi.spyOn(rem, 'setText');
       const { ws } = await start();
       plugin.rem.findOne.mockImplementationOnce(async () => {
-        if (change === 'write') plugin.setTestSetting(SETTING_ACCEPT_WRITE_OPERATIONS, false);
-        if (change === 'kb')
+        if (change === 'write') {
+          plugin.setTestSetting(SETTING_ACCEPT_WRITE_OPERATIONS, false);
+          plugin.emitEvent(
+            SettingEvents.SettingChanged,
+            undefined,
+            SETTING_ACCEPT_WRITE_OPERATIONS
+          );
+        }
+        if (change === 'kb') {
           plugin.kb.getCurrentKnowledgeBaseData.mockResolvedValue({ _id: 'other', name: 'Other' });
-        if (change === 'pairing') plugin.setTestSetting(SETTING_PAIRING_TOKEN, 'c'.repeat(64));
+          const now = Date.now();
+          vi.spyOn(Date, 'now').mockReturnValue(now + ACCESS_CHECK_TTL_MS);
+        }
+        if (change === 'pairing') {
+          plugin.setTestSetting(SETTING_PAIRING_TOKEN, 'c'.repeat(64));
+          plugin.emitEvent(SettingEvents.SettingChanged, undefined, SETTING_PAIRING_TOKEN);
+        }
         return rem;
       });
       expect(
@@ -196,5 +211,69 @@ describe('SDK-only runtime', () => {
       undefined,
       expect.any(Function)
     );
+  });
+
+  it('shares one in-flight settings and knowledge-base read across concurrent sdk calls', async () => {
+    const { ws } = await start();
+    plugin.addTestRem('r', 'Keep');
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let reads = 0;
+    plugin.kb.getCurrentKnowledgeBaseData.mockImplementation(async () => {
+      reads += 1;
+      await gate;
+      return { _id: 'test-kb', name: 'Test KB' };
+    });
+    const first = request(ws, 'sdk_call', {
+      capability: 'namespace:rem.findOne',
+      args: ['r'],
+    });
+    const second = request(ws, 'sdk_call', {
+      capability: 'namespace:rem.findOne',
+      args: ['r'],
+    });
+    await vi.waitFor(() => expect(reads).toBe(1));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(reads).toBe(1);
+    release();
+    expect(await first).toMatchObject({ result: { value: { id: 'r' } } });
+    expect(await second).toMatchObject({ result: { value: { id: 'r' } } });
+    expect(reads).toBe(1);
+  });
+
+  it('reuses the access snapshot for 100ms and drops it on SettingChanged', async () => {
+    const { ws } = await start();
+    plugin.addTestRem('r', 'Keep');
+    let now = 10_000;
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+    const read = () =>
+      request(ws, 'sdk_call', { capability: 'namespace:rem.findOne', args: ['r'] });
+    await read();
+    const after = plugin.kb.getCurrentKnowledgeBaseData.mock.calls.length;
+    await read();
+    expect(plugin.kb.getCurrentKnowledgeBaseData.mock.calls.length).toBe(after);
+    plugin.emitEvent(SettingEvents.SettingChanged, undefined, SETTING_WS_URL);
+    await read();
+    expect(plugin.kb.getCurrentKnowledgeBaseData.mock.calls.length).toBe(after + 1);
+    now += ACCESS_CHECK_TTL_MS - 1;
+    await read();
+    expect(plugin.kb.getCurrentKnowledgeBaseData.mock.calls.length).toBe(after + 1);
+    now += 1;
+    await read();
+    expect(plugin.kb.getCurrentKnowledgeBaseData.mock.calls.length).toBe(after + 2);
+  });
+
+  it('does not drop the access cache for an unrelated SettingChanged key', async () => {
+    const { ws } = await start();
+    plugin.addTestRem('r', 'Keep');
+    const read = () =>
+      request(ws, 'sdk_call', { capability: 'namespace:rem.findOne', args: ['r'] });
+    await read();
+    const after = plugin.kb.getCurrentKnowledgeBaseData.mock.calls.length;
+    plugin.emitEvent(SettingEvents.SettingChanged, undefined, 'unrelated-setting');
+    await read();
+    expect(plugin.kb.getCurrentKnowledgeBaseData.mock.calls.length).toBe(after);
   });
 });

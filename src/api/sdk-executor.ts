@@ -342,7 +342,6 @@ export async function executeSdkCall(
   }
 
   serializeSdkValue(params.args ?? []);
-  await authorize(capability.mode);
   let target: object;
   if (capability.target === 'rem') {
     if (typeof params.targetId !== 'string' || !params.targetId) {

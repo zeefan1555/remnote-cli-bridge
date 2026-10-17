@@ -66,17 +66,20 @@ describe('SDK executor', () => {
   it('allows reads with writes disabled and rechecks authorization after target lookup', async () => {
     const plugin = new MockRemNotePlugin();
     const rem = plugin.addTestRem('r', 'Title');
+    const readAuthorize = vi.fn(readOnly);
     await expect(
-      executeSdkCall(plugin as never, readOnly, {
+      executeSdkCall(plugin as never, readAuthorize, {
         capability: 'namespace:rem.findOne',
         args: ['r'],
       })
     ).resolves.toMatchObject({ value: { $type: 'rem', id: 'r' } });
+    expect(readAuthorize.mock.calls.map(([mode]) => mode)).toEqual(['read', 'read']);
     const write = vi.spyOn(rem, 'setText');
-    const authorize = vi
-      .fn()
-      .mockResolvedValueOnce(undefined)
-      .mockRejectedValueOnce(new Error('KB changed'));
+    const authorize = vi.fn(async (mode: string) => {
+      expect(plugin.rem.findOne).toHaveBeenCalled();
+      expect(mode).toBe('write');
+      throw new Error('KB changed');
+    });
     await expect(
       executeSdkCall(plugin as never, authorize, {
         capability: 'rem:setText',
@@ -84,7 +87,18 @@ describe('SDK executor', () => {
         args: [['Changed']],
       })
     ).rejects.toThrow('KB changed');
+    expect(authorize).toHaveBeenCalledTimes(1);
     expect(write).not.toHaveBeenCalled();
+    const modes: string[] = [];
+    await executeSdkCall(
+      plugin as never,
+      async (mode: string) => {
+        modes.push(mode);
+      },
+      { capability: 'rem:setText', targetId: 'r', args: [['Changed']] }
+    );
+    expect(modes).toEqual(['write', 'read']);
+    expect(write).toHaveBeenCalledOnce();
   });
 
   it('materializes rich text without retaining SDK builder objects', async () => {
