@@ -8,7 +8,7 @@ SDK's `getAliases` and `getOrCreateAliasWithText` results as `{text}` snapshots,
 without invented IDs or callable Rem methods; the catalog declares `aliasText`.
 Recovery records keep the owning Rem ID, and creation verifies the returned text.
 
-These high-level operations are implemented in the companion CLI's [`src/business/rem-adapter.ts`](https://github.com/zeefan1555/remnote-cli/blob/master/src/business/rem-adapter.ts).
+These high-level operations are implemented in the companion CLI's [`src/business/rem-adapter.ts`](https://github.com/zeefan1555/remnote-cli/blob/main/src/business/rem-adapter.ts).
 The plugin provides the underlying official SDK calls; it does not own alias normalization or workflow policy.
 
 ## Create semantics

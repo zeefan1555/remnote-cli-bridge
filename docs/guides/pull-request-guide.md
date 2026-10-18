@@ -19,7 +19,7 @@ Protocol/catalog compatibility does not require matching product versions.
 
 Run each affected repository's quality checks, generated-file freshness check,
 production build and diff check. Test real plugin/CLI interactions through the
-[guarded integration wrapper](https://github.com/zeefan1555/remnote-cli/blob/master/docs/guides/integration-testing.md)
+[guarded integration wrapper](https://github.com/zeefan1555/remnote-cli/blob/main/docs/guides/integration-testing.md)
 after explicit live-test authorization. Record exact IDs, readback, replay and
 unverified boundaries. Mocks do not prove native RemNote persistence.
 

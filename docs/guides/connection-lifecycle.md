@@ -65,5 +65,5 @@ callbacks, which can leave the editor blocked. Begin/end requests fail before an
 transaction opens. A disconnected or timed-out call never triggers a native abort.
 See [ADR 0003](../adr/0003-disable-unsafe-native-transactions.md).
 
-See the [CLI recovery guide](https://github.com/zeefan1555/remnote-cli/blob/master/docs/guides/remnote-cli-troubleshooting.md)
+See the [CLI recovery guide](https://github.com/zeefan1555/remnote-cli/blob/main/docs/guides/remnote-cli-troubleshooting.md)
 for uncertain writes.
