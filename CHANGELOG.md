@@ -7,6 +7,10 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Point the marketplace changelog URL and companion CLI documentation links at the `main` default branch.
+
 ## [0.25.0] - 2026-10-17
 
 ### Changed

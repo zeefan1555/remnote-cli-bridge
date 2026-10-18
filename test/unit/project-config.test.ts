@@ -26,7 +26,7 @@ describe('project config', () => {
     expect(manifest.projectUrl).toBe('https://github.com/zeefan1555/remnote-cli-bridge');
     expect(manifest.supportUrl).toBe('https://github.com/zeefan1555/remnote-cli-bridge/issues');
     expect(manifest.changelogUrl).toBe(
-      'https://github.com/zeefan1555/remnote-cli-bridge/blob/master/CHANGELOG.md'
+      'https://github.com/zeefan1555/remnote-cli-bridge/blob/main/CHANGELOG.md'
     );
     expect(manifest.requiredScopes).toContainEqual({
       type: 'All',

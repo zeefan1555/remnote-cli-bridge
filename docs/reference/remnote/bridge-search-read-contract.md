@@ -8,7 +8,7 @@ This document describes output semantics, not implementation details.
 ## Why this exists
 
 CLI JSON output is consumed by scripts and AI tools. Small changes to field semantics can break downstream behavior
-even when code still compiles. The companion CLI's [`src/business/rem-adapter.ts`](https://github.com/zeefan1555/remnote-cli/blob/master/src/business/rem-adapter.ts) owns these contracts; the plugin only
+even when code still compiles. The companion CLI's [`src/business/rem-adapter.ts`](https://github.com/zeefan1555/remnote-cli/blob/main/src/business/rem-adapter.ts) owns these contracts; the plugin only
 provides official SDK calls. Historical `remnote_*` operation labels below are not plugin actions or MCP tools.
 
 ## Output field semantics

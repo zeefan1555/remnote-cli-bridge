@@ -26,7 +26,7 @@ Approve both `All: ReadCreateModifyDelete` and `KnowledgeBaseInfo: Read`;
 content access alone does not include knowledge-base identity. A new plugin ID
 has separate settings, so its pairing token and write gate must be set explicitly.
 
-Pair the [CLI](https://github.com/zeefan1555/remnote-cli/blob/master/docs/guides/installation.md) with the
+Pair the [CLI](https://github.com/zeefan1555/remnote-cli/blob/main/docs/guides/installation.md) with the
 intended KB. Set **CLI pairing token** from the private pairing file, use the
 matching loopback WebSocket port, and enable writes only when authorized.
 The token is private; never put it in screenshots, logs or issue reports.

@@ -15,7 +15,7 @@ the companion CLI owns the high-level operations and contracts described here.
 ## CLI Business Operations
 
 The following historical operation labels refer to CLI business methods, not gateway actions.
-See the [CLI reference](https://github.com/zeefan1555/remnote-cli/blob/master/docs/guides/remnote-cli-command-reference.md) for public commands.
+See the [CLI reference](https://github.com/zeefan1555/remnote-cli/blob/main/docs/guides/remnote-cli-command-reference.md) for public commands.
 The native transaction restriction in [ADR 0003](../../adr/0003-disable-unsafe-native-transactions.md)
 overrides atomic write descriptions below; read and preview operations remain available.
 

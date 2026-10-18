@@ -2,10 +2,10 @@
 
 Task composition belongs to the companion CLI, not to this plugin.
 
-- [Read receipts](https://github.com/zeefan1555/remnote-cli/blob/master/docs/guides/read-receipts.md)
-- [Preview-first task plans](https://github.com/zeefan1555/remnote-cli/blob/master/docs/guides/task-plans.md)
-- [Task schemas](https://github.com/zeefan1555/remnote-cli/blob/master/src/schemas/task-schemas.ts)
-- [Business implementation](https://github.com/zeefan1555/remnote-cli/blob/master/src/business/task-operations.ts)
+- [Read receipts](https://github.com/zeefan1555/remnote-cli/blob/main/docs/guides/read-receipts.md)
+- [Preview-first task plans](https://github.com/zeefan1555/remnote-cli/blob/main/docs/guides/task-plans.md)
+- [Task schemas](https://github.com/zeefan1555/remnote-cli/blob/main/src/schemas/task-schemas.ts)
+- [Business implementation](https://github.com/zeefan1555/remnote-cli/blob/main/src/business/task-operations.ts)
 
 The plugin exposes only generated SDK methods and transport-level status,
 capabilities. Native transactions are rejected under
