@@ -14,7 +14,16 @@ Concurrency is transport-level only.
 
 The plugin owns the official SDK, the generated public allowlist, JSON serialization, mutual authentication, knowledge-base binding, and live permission checks. Gateway actions are `get_status`, `get_sdk_capabilities`, and `sdk_call`. Begin and end transaction requests fail before any native transaction opens. See [ADR 0003](0003-disable-unsafe-native-transactions.md).
 
-Protocol 1 is unchanged by the plugin id rename. The handshake does not carry the plugin id. `get_status.pluginId` reports the manifest id `remnote-cli-bridge`.
+Protocol 2 requires monotonic, non-reusable safe-integer request IDs. One high-water
+mark replaces the cumulative 20,000-ID replay set. SDK concurrency, outstanding
+work, slot waiters and queued frames have separate fixed bounds. See the
+[connection lifecycle](../guides/connection-lifecycle.md) for the wire contract.
+Protocol-1 peers fail before dispatch; no fallback is maintained. The handshake
+does not carry the plugin id. `get_status.pluginId` reports `remnote-cli-bridge`.
+
+The CLI credential-file schema is independently `schemaVersion: 1`. Unsupported
+old configuration is rejected without changes. Coordinated source changes do not
+authorize installation, credential conversion, token rotation or re-pairing.
 
 ## Consequences
 

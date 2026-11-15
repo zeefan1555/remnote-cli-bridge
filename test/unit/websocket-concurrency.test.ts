@@ -51,18 +51,20 @@ describe('concurrent bridge requests', () => {
       return { id: req.id };
     });
     await authenticate(ws);
-    for (let i = 0; i < MAX_CONCURRENT_REQUESTS + 4; i++) send(ws, `r${i}`);
+    for (let i = 0; i < MAX_CONCURRENT_REQUESTS + 4; i++) send(ws, String(i + 1));
     await vi.waitFor(() => expect(started).toHaveLength(MAX_CONCURRENT_REQUESTS));
-    expect(started).toEqual(Array.from({ length: MAX_CONCURRENT_REQUESTS }, (_, i) => `r${i}`));
+    expect(started).toEqual(
+      Array.from({ length: MAX_CONCURRENT_REQUESTS }, (_, i) => String(i + 1))
+    );
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(started).toHaveLength(MAX_CONCURRENT_REQUESTS);
-    gates.get('r0')!.reject(new Error('r0 failed'));
-    await vi.waitFor(() => expect(started).toContain('r16'));
-    expect(started[MAX_CONCURRENT_REQUESTS]).toBe('r16');
+    gates.get('1')!.reject(new Error('r0 failed'));
+    await vi.waitFor(() => expect(started).toContain('17'));
+    expect(started[MAX_CONCURRENT_REQUESTS]).toBe('17');
     expect(ws.readyState).toBe(MockWebSocket.OPEN);
     await vi.waitFor(() =>
-      expect(ws.sentMessages.filter((frame) => frame.includes('"id":"r0"'))).toEqual([
-        JSON.stringify({ id: 'r0', error: 'r0 failed' }),
+      expect(ws.sentMessages.filter((frame) => frame.includes('"id":"1"'))).toEqual([
+        JSON.stringify({ id: '1', error: 'r0 failed' }),
       ])
     );
     await vi.waitFor(() => {
@@ -84,25 +86,25 @@ describe('concurrent bridge requests', () => {
         })
     );
     await authenticate(ws);
-    for (const id of ['a', 'b', 'c']) send(ws, id);
+    for (const id of ['1', '2', '3']) send(ws, id);
     await vi.waitFor(() => expect(gates.size).toBe(3));
-    gates.get('c')!.resolve({ n: 3 });
-    gates.get('a')!.reject(new Error('a failed'));
-    gates.get('b')!.resolve({ n: 2 });
+    gates.get('3')!.resolve({ n: 3 });
+    gates.get('1')!.reject(new Error('a failed'));
+    gates.get('2')!.resolve({ n: 2 });
     await vi.waitFor(() => {
       const ids = ws.sentMessages
         .map((frame) => JSON.parse(frame) as { id?: string })
         .filter((frame) => frame.id)
         .map((frame) => frame.id);
-      expect(ids).toEqual(['c', 'a', 'b']);
+      expect(ids).toEqual(['3', '1', '2']);
     });
     const responses = ws.sentMessages
       .map((frame) => JSON.parse(frame) as { id?: string; result?: unknown; error?: string })
       .filter((frame) => frame.id);
     expect(responses).toEqual([
-      { id: 'c', result: { n: 3 } },
-      { id: 'a', error: 'a failed' },
-      { id: 'b', result: { n: 2 } },
+      { id: '3', result: { n: 3 } },
+      { id: '1', error: 'a failed' },
+      { id: '2', result: { n: 2 } },
     ]);
     expect(ws.readyState).toBe(MockWebSocket.OPEN);
   });
@@ -116,7 +118,7 @@ describe('concurrent bridge requests', () => {
     });
     client.setMessageHandler(handler);
     await authenticate(ws);
-    for (let i = 0; i < MAX_CONCURRENT_REQUESTS + 1; i++) send(ws, `q${i}`);
+    for (let i = 0; i < MAX_CONCURRENT_REQUESTS + 1; i++) send(ws, String(i + 1));
     await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(MAX_CONCURRENT_REQUESTS));
     client.reconnect();
     const next = MockWebSocket.instances.at(-1)!;
@@ -126,6 +128,6 @@ describe('concurrent bridge requests', () => {
     const frames = [...ws.sentMessages, ...next.sentMessages].map(
       (frame) => JSON.parse(frame) as { id?: string }
     );
-    expect(frames.some((frame) => frame.id?.startsWith('q'))).toBe(false);
+    expect(frames.some((frame) => frame.id)).toBe(false);
   });
 });

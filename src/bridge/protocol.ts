@@ -1,5 +1,14 @@
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 export const MAX_MESSAGE_BYTES = 8 * 1024 * 1024;
+
+/** Canonical positive safe integers: one high-water mark replaces a cumulative set. */
+export function requestSequence(id: unknown): number {
+  if (typeof id !== 'string' || !/^[1-9][0-9]{0,15}$/.test(id))
+    throw new Error('Invalid request ID');
+  const sequence = Number(id);
+  if (!Number.isSafeInteger(sequence)) throw new Error('Invalid request ID');
+  return sequence;
+}
 
 export async function signProof(token: string, message: string): Promise<string> {
   const key = await crypto.subtle.importKey(

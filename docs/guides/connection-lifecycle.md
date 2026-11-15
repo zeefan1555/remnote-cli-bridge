@@ -14,18 +14,16 @@ healthy; **CLI connected** is expected only while a command is running.
 1. Plugin activation starts background connection attempts.
 2. The CLI binds `127.0.0.1` on the paired port.
 3. Fresh HMAC challenges authenticate both peers. The secret is never sent.
-   The CLI sends `challenge` with protocol 1, a 64-hex nonce, and a proof of
+   The CLI sends `challenge` with protocol 2, a 64-hex nonce, and a proof of
    `cli:<nonce>`. The plugin answers with `hello`. `hello.identity` contains
    `protocolVersion`, `pluginVersion`, `sdkVersion`, `sdkCatalogHash`,
    `knowledgeBaseId`, `knowledgeBaseName`, `acceptWriteOperations`, and
    `acceptReplaceOperation`. The plugin id is not part of that handshake.
    The plugin proof is `plugin:<nonce>:<JSON identity>`. The CLI then sends
-   `ready`. Protocol version stays 1.
-4. The CLI requires the intended KB, protocol 1 and a valid live SDK catalog.
+   `ready`. Both peers reject other protocol versions before dispatch.
+4. The CLI requires the intended KB, protocol 2 and a valid live SDK catalog.
    `get_status` returns `pluginId` from the manifest, now `remnote-cli-bridge`.
-   A CLI that only displays that field needs no protocol change. A CLI that
-   requires `zeefan-remnote-sdk-bridge` must accept `remnote-cli-bridge`.
-5. Requests use exact IDs, KB binding and deadlines.
+5. Requests use canonical positive safe-integer decimal IDs, KB binding and deadlines.
 6. Command completion closes the listener and socket; the plugin waits again.
 
 The plugin checks pairing, live permissions and the current KB before and after
@@ -41,6 +39,25 @@ port. Up to 16 validated requests run at once. Frame parsing, the handshake, pin
 and request validation stay ordered, and each response carries its request id. A
 handler failure answers only that request. A new plugin session waits for prior
 individual SDK calls to settle and does not write on the closed socket.
+
+Request IDs increase in actual wire-send order, from 1 through 9007199254740991.
+A single per-session high-water ID rejects duplicates, decreases, noncanonical
+strings and unsafe integers before dispatch. Success, SDK errors and expiry all
+consume the ID; exhaustion cannot wrap. This follows the monotonic non-reuse
+pattern of [RFC 9113 section 5.1.1](https://www.rfc-editor.org/rfc/rfc9113.html#section-5.1.1),
+not HTTP/2 framing. There is no cumulative request-count ceiling.
+
+Independent fixed bounds are 16 SDK executions, 16 slot waiters, 32 outstanding
+requests, and 32 ordered frames / 8 MiB aggregate queued frame bytes. The CLI
+sends at most 16 at a time and admits at most 16 more local waiters. These windows
+are based on existing SDK concurrency, not configurable cumulative limits.
+Overload closes the session before the offending request can dispatch; prior
+native work may still complete. Disconnect cancels waiters, not native execution.
+Queued frames from an old socket cannot dispatch or replay on its successor.
+
+The CLI reads strict `schemaVersion: 1` credentials before opening a listener;
+the file schema and wire version are separate. Old configuration fails unchanged.
+Coordinated installation and re-pairing require explicit authorization.
 
 ## Retry And Recovery
 

@@ -42,7 +42,7 @@ describe('SDK-only runtime', () => {
     expect(await request(ws, 'get_status')).toMatchObject({
       result: {
         connected: true,
-        protocolVersion: 1,
+        protocolVersion: 2,
         pluginId: 'remnote-cli-bridge',
         sdkVersion: '0.0.46',
         knowledgeBaseId: 'test-kb',
@@ -51,7 +51,7 @@ describe('SDK-only runtime', () => {
     });
     expect(runtime.getSnapshot()).toMatchObject({
       pluginId: 'remnote-cli-bridge',
-      protocolVersion: 1,
+      protocolVersion: 2,
       sdkVersion: '0.0.46',
       knowledgeBaseId: 'test-kb',
     });
@@ -83,7 +83,7 @@ describe('SDK-only runtime', () => {
     await vi.waitFor(() => expect(ws.readyState).toBe(MockWebSocket.OPEN));
     ws.simulateMessage({
       type: 'challenge',
-      protocolVersion: 1,
+      protocolVersion: 2,
       nonce: NONCE,
       proof: sign(TEST_TOKEN, 'cli:' + NONCE),
     });

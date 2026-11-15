@@ -9,6 +9,14 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Require protocol 2 with canonical monotonic safe-integer request IDs. One
+  session high-water mark replaces the cumulative 20,000-ID replay set. Retain
+  16 SDK executions while bounding outstanding requests, slot waiters, ordered
+  frames and aggregate queued bytes independently. Old peers and overload fail
+  before offending dispatch; authentication, KB, deadlines, permissions and
+  no-replay behavior remain. CLI credential schema is separate; no automatic
+  re-pairing, installation or token conversion is performed.
+
 - Point the marketplace changelog URL and companion CLI documentation links at the `main` default branch.
 
 ## [0.25.0] - 2026-10-17
