@@ -8,7 +8,7 @@ remnote-cli <-> loopback WebSocket (127.0.0.1) <-> RemNote CLI Bridge <-> RemNot
 
 The plugin exposes one official SDK method per call and passes the arguments through. The CLI composes those calls into workflows such as flashcards, outlines, and journals. Keep RemNote open while you use the CLI. The sidebar is optional and shows whether a command is connected.
 
-Plugin id: `remnote-cli-bridge`. Product versions of the plugin and the CLI do not need to match. Protocol 1 does.
+Plugin id: `remnote-cli-bridge`. Product versions of the plugin and the CLI do not need to match. Both peers must implement protocol 2; protocol-1 peers fail before dispatch.
 
 ## Privacy
 
@@ -52,11 +52,13 @@ For a retained local copy, serve `dist/` and `scripts/serve-dist.js` from `~/.lo
 
 See [local setup](docs/guides/development-run-plugin-locally.md) and [connection lifecycle](docs/guides/connection-lifecycle.md).
 
-## What the CLI must know about this rename
+## Wire protocol
 
-The handshake is unchanged. `challenge`, `hello`, and `ready` stay on protocol 1. `hello.identity` carries the protocol version, plugin version, SDK version, catalog hash, knowledge-base id and name, and the write gates. It does not carry the plugin id. Proof messages remain `cli:<nonce>` and `plugin:<nonce>:<JSON hello>`.
+`challenge`, `hello`, and `ready` require protocol 2. `hello.identity` carries the protocol version, plugin version, SDK version, catalog hash, knowledge-base id and name, and the write gates. It does not carry the plugin id. Proof messages remain `cli:<nonce>` and `plugin:<nonce>:<JSON hello>`.
 
-`get_status` returns `pluginId: "remnote-cli-bridge"`. Display-only clients need no protocol change. A client that requires `zeefan-remnote-sdk-bridge` must accept `remnote-cli-bridge`.
+`get_status` returns `pluginId: "remnote-cli-bridge"`. Requests use canonical positive safe-integer decimal IDs in increasing send order. One session high-water ID replaces the old cumulative 20,000-ID set; execution and queues remain independently bounded. See [connection lifecycle](docs/guides/connection-lifecycle.md).
+
+The CLI's credential file separately uses `schemaVersion: 1`. Old configurations fail without modification. Coordinated peer installation and any re-pairing require explicit authorization; a source build never changes tokens or plugin settings.
 
 ## Development
 

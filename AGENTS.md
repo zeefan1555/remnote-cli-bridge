@@ -20,7 +20,7 @@ The plugin owns the official SDK, the generated public allowlist, JSON serializa
 
 The gateway actions are `get_status`, `get_sdk_capabilities`, and `sdk_call`. Transaction begin and end requests fail. There is no MCP transport, business action dispatcher, developer-console executor, or compatibility shim.
 
-The handshake is protocol 1. `hello` does not include the plugin id. `get_status.pluginId` is the manifest id `remnote-cli-bridge`. Read [ADR 0001](docs/adr/0001-direct-cli.md) before changing this ownership.
+The handshake is protocol 2; old peers fail before dispatch. `hello` does not include the plugin id. `get_status.pluginId` is the manifest id `remnote-cli-bridge`. The CLI credential file uses independent `schemaVersion: 1`; coordinated installation/re-pairing needs explicit authorization. Read [ADR 0001](docs/adr/0001-direct-cli.md) before changing this ownership.
 
 ## Code Map
 

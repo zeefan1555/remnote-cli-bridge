@@ -10,7 +10,7 @@ export async function authenticate(ws: MockWebSocket, token = TEST_TOKEN): Promi
   await vi.waitFor(() => expect(ws.readyState).toBe(MockWebSocket.OPEN));
   ws.simulateMessage({
     type: 'challenge',
-    protocolVersion: 1,
+    protocolVersion: 2,
     nonce: NONCE,
     proof: sign(token, 'cli:' + NONCE),
   });
@@ -20,7 +20,7 @@ export async function authenticate(ws: MockWebSocket, token = TEST_TOKEN): Promi
   expect(hello.identity.pluginId).toBeUndefined();
   expect(hello.proof).toBe(sign(token, 'plugin:' + NONCE + ':' + JSON.stringify(hello.identity)));
   expect(JSON.stringify(hello)).not.toContain(token);
-  ws.simulateMessage({ type: 'ready', protocolVersion: 1, version: 'arbitrary-cli-version' });
+  ws.simulateMessage({ type: 'ready', protocolVersion: 2, version: 'arbitrary-cli-version' });
 }
 let requestId = 0;
 export async function request(

@@ -42,7 +42,7 @@ describe('connection sidebar', () => {
           retryPhase: 'idle',
           bridgeVersion: 'test',
           pluginId: 'remnote-cli-bridge',
-          protocolVersion: 1,
+          protocolVersion: 2,
           sdkVersion: '0.0.46',
           knowledgeBaseId: 'test-kb',
           knowledgeBaseName: 'Test KB',
@@ -58,7 +58,7 @@ describe('connection sidebar', () => {
       expect(container.textContent).toContain('CLI connected');
       expect(container.textContent).toContain('RemNote CLI Bridge');
       expect(container.textContent).toContain('remnote-cli-bridge');
-      expect(container.textContent).toContain('1 / 0.0.46');
+      expect(container.textContent).toContain('2 / 0.0.46');
       expect(container.textContent).toContain('Test KB (test-kb)');
       expect(container.querySelector('[role="alert"]')?.textContent).toBe('Read denied');
       expect(container.textContent).toContain('Failure');

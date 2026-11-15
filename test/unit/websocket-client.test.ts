@@ -62,7 +62,7 @@ describe('authenticated command connection', () => {
       else
         ws.simulateMessage({
           type: 'challenge',
-          protocolVersion: kind === 'protocol' ? 2 : 1,
+          protocolVersion: kind === 'protocol' ? 1 : 2,
           nonce: NONCE,
           proof: '0'.repeat(64),
         });
@@ -79,7 +79,7 @@ describe('authenticated command connection', () => {
     client.setMessageHandler(handler);
     await authenticate(ws);
     const frame = {
-      id: 'one',
+      id: '1',
       action: 'sdk_call',
       payload: {},
       knowledgeBaseId: 'test-kb',
@@ -112,7 +112,7 @@ describe('authenticated command connection', () => {
     });
     await authenticate(ws);
     ws.simulateMessage({
-      id: 'expired',
+      id: '1',
       action: 'sdk_call',
       payload: {},
       knowledgeBaseId: 'test-kb',
@@ -122,7 +122,7 @@ describe('authenticated command connection', () => {
       expect(ws.sentMessages.some((s) => s.includes('deadline expired'))).toBe(true)
     );
     ws.simulateMessage({
-      id: 'pending',
+      id: '2',
       action: 'sdk_call',
       payload: {},
       knowledgeBaseId: 'test-kb',
@@ -132,9 +132,9 @@ describe('authenticated command connection', () => {
     release();
     await authenticate(MockWebSocket.instances.at(-1)!);
     expect(mutate).not.toHaveBeenCalled();
-    expect(
-      MockWebSocket.instances.at(-1)!.sentMessages.some((s) => s.includes('"id":"pending"'))
-    ).toBe(false);
+    expect(MockWebSocket.instances.at(-1)!.sentMessages.some((s) => s.includes('"id":"2"'))).toBe(
+      false
+    );
   });
 
   it('caps retries at 1.5 seconds, supports wakeup and cancels on shutdown', async () => {
@@ -167,7 +167,7 @@ describe('authenticated command connection', () => {
     client.setMessageHandler(handler);
     await authenticate(ws);
     ws.simulateMessage({
-      id: 'slow',
+      id: '1',
       action: 'sdk_call',
       payload: {},
       knowledgeBaseId: 'test-kb',
@@ -179,7 +179,7 @@ describe('authenticated command connection', () => {
     await vi.waitFor(() => expect(next.readyState).toBe(MockWebSocket.OPEN));
     next.simulateMessage({
       type: 'challenge',
-      protocolVersion: 1,
+      protocolVersion: 2,
       nonce: NONCE,
       proof: sign(TEST_TOKEN, 'cli:' + NONCE),
     });
@@ -189,7 +189,7 @@ describe('authenticated command connection', () => {
     await vi.waitFor(() =>
       expect(next.sentMessages.some((s) => s.includes('"type":"hello"'))).toBe(true)
     );
-    expect(ws.sentMessages.some((s) => s.includes('"id":"slow"'))).toBe(false);
+    expect(ws.sentMessages.some((s) => s.includes('"id":"1"'))).toBe(false);
   });
 
   it('enforces byte limits for Unicode frames before dispatch', async () => {

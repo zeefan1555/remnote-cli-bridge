@@ -18,7 +18,7 @@ describe('sidebar runtime channel', () => {
       retryPhase: 'idle',
       bridgeVersion: 'test',
       pluginId: 'remnote-cli-bridge',
-      protocolVersion: 1,
+      protocolVersion: 2,
       sdkVersion: '0.0.46',
       wsUrl: 'ws://127.0.0.1:3002',
       logs: [{ timestamp: new Date(), message: 'Connected', level: 'info' }],
