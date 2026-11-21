@@ -8,7 +8,7 @@ A new CLI workflow using existing SDK methods does not need a plugin change.
 
 ## Shared Contracts
 
-Changes to the wire protocol, authentication, KB binding, SDK serialization or
+Changes to the wire protocol, loopback Origin handling, KB binding, SDK serialization or
 generated capability metadata require coordinated contracts and tests in both
 repositories. Link companion PRs when those shared boundaries change.
 

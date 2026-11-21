@@ -1,6 +1,6 @@
 # RemNote CLI Bridge
 
-A RemNote desktop plugin that gives [remnote-cli](https://github.com/zeefan1555/remnote-cli) authenticated access to the official Plugin SDK on this machine.
+A RemNote desktop plugin that gives [remnote-cli](https://github.com/zeefan1555/remnote-cli) zero-configuration access to the official Plugin SDK on this machine.
 
 ```text
 remnote-cli <-> loopback WebSocket (127.0.0.1) <-> RemNote CLI Bridge <-> RemNote SDK
@@ -8,13 +8,13 @@ remnote-cli <-> loopback WebSocket (127.0.0.1) <-> RemNote CLI Bridge <-> RemNot
 
 The plugin exposes one official SDK method per call and passes the arguments through. The CLI composes those calls into workflows such as flashcards, outlines, and journals. Keep RemNote open while you use the CLI. The sidebar is optional and shows whether a command is connected.
 
-Plugin id: `remnote-cli-bridge`. Product versions of the plugin and the CLI do not need to match. Protocol 1 does.
+Plugin id: `remnote-cli-bridge`. Product versions of the plugin and the CLI do not need to match. Protocol 2 does.
 
 ## Privacy
 
-Knowledge-base content stays on this machine. The plugin talks only to the local CLI over `ws://127.0.0.1`. It does not send notes, cards, tokens, or usage data to a remote server. It has no telemetry.
+Knowledge-base content stays on this machine. The plugin talks only to the local CLI over `ws://127.0.0.1:3002`. It does not send notes, cards, or usage data to a remote server. It has no telemetry.
 
-The pairing token is a local secret. The plugin uses it to check HMAC proofs and never puts the token on the wire. Logs redact 64-character hex secrets. A local development asset server, when you use one, binds to `127.0.0.1` and serves the built plugin files only.
+There is no pairing token. The trust boundary is the current operating-system user: after you install the plugin and approve its official RemNote scopes, local programs running as that user can call the exposed SDK capabilities. The CLI listener rejects ordinary webpage origins. Origin checks do not isolate native local processes, which can forge request headers. A local development asset server, when you use one, binds to `127.0.0.1` and serves the built plugin files only.
 
 ## Permissions
 
@@ -22,19 +22,17 @@ The manifest requests two scopes. RemNote asks you to approve them at install ti
 
 | Scope | Level | Why it is requested |
 | --- | --- | --- |
-| `All` | `ReadCreateModifyDelete` | The CLI is a general client for the knowledge base you choose. Reads, new Rems, edits, and deletions all go through official SDK methods. The plugin still defaults **Accept write operations** and **Accept destructive operations** to off, and a destructive CLI command also requires its own consent. Narrower descendant or powerup scopes cannot cover an open-ended SDK gateway. |
+| `All` | `ReadCreateModifyDelete` | The CLI is a general client for the active knowledge base. Reads, new Rems, edits, and deletions all go through official SDK methods. Narrower descendant or powerup scopes cannot cover an open-ended SDK gateway. |
 | `KnowledgeBaseInfo` | `Read` | Each session is bound to the open knowledge base. The plugin reads that knowledge base's id and name so a switch stops further writes. The `All` content scope does not include this identity. |
 
 `requestNative` is false. `enableOnMobile` is false. This plugin is for RemNote desktop.
 
-## Install and pair
+## Install
 
 1. In **RemNote desktop**, open **Plugins** and install **RemNote CLI Bridge** (`remnote-cli-bridge`) from the marketplace.
 2. Approve both scopes above. An older install of `zeefan-remnote-sdk-bridge` is a different plugin. Its grants do not apply here. Disable that older plugin after this one works.
-3. Install [remnote-cli](https://github.com/zeefan1555/remnote-cli) and run its pairing command so it writes a private local token.
-4. In the plugin settings, set **CLI pairing token** to that token. Leave the field and confirm the setting was saved. Do not put the token in screenshots, logs, or issues.
-5. Set **CLI loopback WebSocket URL** to the CLI listener, `ws://127.0.0.1:<port>`. The default is `ws://127.0.0.1:3002`.
-6. Leave the write gates off until you intend to change the knowledge base.
+3. Install [remnote-cli](https://github.com/zeefan1555/remnote-cli).
+4. Run any CLI command. No initialization, pairing token, URL, knowledge-base id, or Bridge permission setting is required.
 
 The sidebar says **Waiting for CLI** between commands and **CLI connected** while a command is running. Use **Reconnect** if the panel stays disconnected after you start a command.
 
@@ -46,17 +44,37 @@ npm run build
 node scripts/serve-dist.js --root dist --port 8090
 ```
 
-In **Settings > Plugins > Build**, enter `http://localhost:8090/`. Use the literal hostname `localhost`. The asset host still binds to `127.0.0.1`. Confirm the manifest id is `remnote-cli-bridge`, then approve the scopes and pair as above.
+In **Settings > Plugins > Build**, enter `http://localhost:8090/`. Use the literal hostname `localhost`. The asset host still binds to `127.0.0.1`. Confirm the manifest id is `remnote-cli-bridge`, then approve the scopes as above.
 
-For a retained local copy, serve `dist/` and `scripts/serve-dist.js` from `~/.local/share/remnote-cli-bridge/` with a user LaunchAgent named `com.remnote.cli-bridge-assets` on `127.0.0.1:8090`. Point the agent at an absolute Node path. That directory holds built files only: no pairing token, checkout, or test notes.
+For a retained local copy, serve `dist/` and `scripts/serve-dist.js` from `~/.local/share/remnote-cli-bridge/` with a user LaunchAgent named `com.remnote.cli-bridge-assets` on `127.0.0.1:8090`. Point the agent at an absolute Node path. That directory holds built files only: no checkout or test notes.
 
 See [local setup](docs/guides/development-run-plugin-locally.md) and [connection lifecycle](docs/guides/connection-lifecycle.md).
 
-## What the CLI must know about this rename
+## Protocol
 
-The handshake is unchanged. `challenge`, `hello`, and `ready` stay on protocol 1. `hello.identity` carries the protocol version, plugin version, SDK version, catalog hash, knowledge-base id and name, and the write gates. It does not carry the plugin id. Proof messages remain `cli:<nonce>` and `plugin:<nonce>:<JSON hello>`.
+When a CLI command exposes `ws://127.0.0.1:3002`, the plugin opens the socket and the CLI immediately sends:
 
-`get_status` returns `pluginId: "remnote-cli-bridge"`. Display-only clients need no protocol change. A client that requires `zeefan-remnote-sdk-bridge` must accept `remnote-cli-bridge`.
+```json
+{ "type": "hello", "protocolVersion": 2, "version": "<cli-version>" }
+```
+
+The plugin reads the live active knowledge base and answers:
+
+```json
+{
+  "type": "ready",
+  "protocolVersion": 2,
+  "identity": {
+    "pluginVersion": "0.26.0",
+    "sdkVersion": "0.0.46",
+    "sdkCatalogHash": "<sha256>",
+    "knowledgeBaseId": "<id>",
+    "knowledgeBaseName": "<name>"
+  }
+}
+```
+
+Requests use canonical positive integer IDs that increase within one session. Each request carries the connected knowledge-base id and a deadline. The plugin rejects replayed/decreasing IDs, a changed knowledge base, a closed socket, an expired deadline, unknown actions, unsupported capabilities, and unbounded frames. `get_status` reports `pluginId: "remnote-cli-bridge"`.
 
 ## Development
 

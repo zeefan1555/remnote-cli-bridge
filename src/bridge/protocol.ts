@@ -1,35 +1,14 @@
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 export const MAX_MESSAGE_BYTES = 8 * 1024 * 1024;
+export const BRIDGE_WEBSOCKET_URL = 'ws://127.0.0.1:3002/';
 
-export async function signProof(token: string, message: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(token),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message));
-  return Array.from(new Uint8Array(signature), (byte) => byte.toString(16).padStart(2, '0')).join(
-    ''
-  );
-}
-
-export async function verifyProof(
-  token: string,
-  message: string,
-  proof: unknown
-): Promise<boolean> {
-  if (typeof proof !== 'string' || !/^[a-f0-9]{64}$/.test(proof)) return false;
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(token),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['verify']
-  );
-  const signature = Uint8Array.from(proof.match(/../g)!, (byte) => parseInt(byte, 16));
-  return crypto.subtle.verify('HMAC', key, signature, new TextEncoder().encode(message));
+/** Canonical positive safe integers let one high-water mark identify replay. */
+export function requestSequence(id: unknown): number {
+  if (typeof id !== 'string' || !/^[1-9][0-9]{0,15}$/.test(id))
+    throw new Error('Invalid request ID');
+  const sequence = Number(id);
+  if (!Number.isSafeInteger(sequence)) throw new Error('Invalid request ID');
+  return sequence;
 }
 
 export function loopbackUrl(value: string): string {
@@ -46,4 +25,12 @@ export function loopbackUrl(value: string): string {
     throw new Error('Bridge URL must be ws://127.0.0.1:<port>');
   }
   return url.toString();
+}
+
+export function fixedBridgeUrl(value = BRIDGE_WEBSOCKET_URL): string {
+  const normalized = loopbackUrl(value);
+  if (normalized !== BRIDGE_WEBSOCKET_URL) {
+    throw new Error(`Bridge URL must be ${BRIDGE_WEBSOCKET_URL}`);
+  }
+  return normalized;
 }

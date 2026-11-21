@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WebSocketClient } from '../../src/bridge/websocket-client';
-import { loopbackUrl, verifyProof } from '../../src/bridge/protocol';
+import { fixedBridgeUrl, PROTOCOL_VERSION, requestSequence } from '../../src/bridge/protocol';
+import { SDK_CATALOG_HASH } from '../../src/api/sdk-capabilities.generated';
 import { MockWebSocket } from '../helpers/mocks';
-import { authenticate, NONCE, request, sign, TEST_TOKEN } from '../helpers/connection';
+import { authenticate, request } from '../helpers/connection';
 
 let client: WebSocketClient;
 afterEach(() => {
@@ -11,26 +12,26 @@ afterEach(() => {
   vi.unstubAllGlobals();
   MockWebSocket.reset();
 });
+
 function start() {
   vi.stubGlobal('WebSocket', MockWebSocket);
   const log = vi.fn();
   client = new WebSocketClient({
-    url: 'ws://127.0.0.1:3002',
-    pluginVersion: 'different-plugin-version',
-    getToken: async () => TEST_TOKEN,
     getIdentity: async () => ({
+      pluginVersion: 'test-plugin',
+      sdkVersion: '0.0.46',
+      sdkCatalogHash: SDK_CATALOG_HASH,
       knowledgeBaseId: 'test-kb',
       knowledgeBaseName: 'Test',
-      acceptWriteOperations: true,
-      acceptReplaceOperation: false,
     }),
     onLog: log,
   });
   client.connect();
   return { ws: MockWebSocket.instances.at(-1)!, log };
 }
-describe('authenticated command connection', () => {
-  it('authenticates both peers, serializes requests and replies on the same socket', async () => {
+
+describe('zero-configuration command connection', () => {
+  it('performs the protocol 2 handshake and serializes requests', async () => {
     const { ws } = start();
     const handler = vi.fn(async (req, assertSession) => {
       assertSession();
@@ -41,6 +42,7 @@ describe('authenticated command connection', () => {
     await vi.waitFor(() => expect(client.getStatus()).toBe('connected'));
     client.connect();
     expect(MockWebSocket.instances).toHaveLength(1);
+    expect(JSON.stringify(ws.sentMessages[0])).not.toMatch(/proof|token|nonce/i);
     expect(await request(ws, 'sdk_call', { value: 1 })).toMatchObject({ result: { value: 1 } });
     ws.simulateMessage({ type: 'ping' });
     await vi.waitFor(() => expect(ws.sentMessages).toContain(JSON.stringify({ type: 'pong' })));
@@ -49,7 +51,7 @@ describe('authenticated command connection', () => {
     expect(client.getRetryPhase()).toBe('idle');
   });
 
-  it.each(['wrong-proof', 'protocol', 'request-before-auth', 'invalid-json'])(
+  it.each(['old-challenge', 'protocol', 'request-before-ready', 'invalid-json', 'missing-version'])(
     'rejects %s before invoking the gateway',
     async (kind) => {
       const { ws, log } = start();
@@ -57,29 +59,31 @@ describe('authenticated command connection', () => {
       client.setMessageHandler(handler);
       await vi.waitFor(() => expect(ws.readyState).toBe(MockWebSocket.OPEN));
       if (kind === 'invalid-json') ws.simulateMessage('{');
-      else if (kind === 'request-before-auth')
-        ws.simulateMessage({ id: 'bad', action: 'sdk_call', payload: {} });
+      else if (kind === 'request-before-ready')
+        ws.simulateMessage({ id: '1', action: 'sdk_call', payload: {} });
+      else if (kind === 'old-challenge')
+        ws.simulateMessage({ type: 'challenge', protocolVersion: 2 });
       else
         ws.simulateMessage({
-          type: 'challenge',
-          protocolVersion: kind === 'protocol' ? 2 : 1,
-          nonce: NONCE,
-          proof: '0'.repeat(64),
+          type: 'hello',
+          protocolVersion: kind === 'protocol' ? 1 : 2,
+          ...(kind === 'missing-version' ? {} : { version: 'cli' }),
         });
       await vi.waitFor(() => expect(log).toHaveBeenCalled());
+      expect(log).toHaveBeenCalledWith('Protocol or authentication failure', 'error');
       expect(handler).not.toHaveBeenCalled();
       expect(ws.readyState).toBe(MockWebSocket.CLOSED);
       expect(ws.sentMessages).toHaveLength(0);
     }
   );
 
-  it('rejects a mismatched KB and repeated request IDs', async () => {
+  it('rejects a mismatched KB and replayed request IDs', async () => {
     const { ws } = start();
     const handler = vi.fn(async () => true);
     client.setMessageHandler(handler);
     await authenticate(ws);
     const frame = {
-      id: 'one',
+      id: '1',
       action: 'sdk_call',
       payload: {},
       knowledgeBaseId: 'test-kb',
@@ -90,6 +94,7 @@ describe('authenticated command connection', () => {
     ws.simulateMessage(frame);
     await vi.waitFor(() => expect(ws.readyState).toBe(MockWebSocket.CLOSED));
     expect(handler).toHaveBeenCalledTimes(1);
+
     client.reconnect();
     const next = MockWebSocket.instances.at(-1)!;
     await authenticate(next);
@@ -112,17 +117,17 @@ describe('authenticated command connection', () => {
     });
     await authenticate(ws);
     ws.simulateMessage({
-      id: 'expired',
+      id: '1',
       action: 'sdk_call',
       payload: {},
       knowledgeBaseId: 'test-kb',
       deadline: Date.now() - 1,
     });
     await vi.waitFor(() =>
-      expect(ws.sentMessages.some((s) => s.includes('deadline expired'))).toBe(true)
+      expect(ws.sentMessages.some((frame) => frame.includes('deadline expired'))).toBe(true)
     );
     ws.simulateMessage({
-      id: 'pending',
+      id: '2',
       action: 'sdk_call',
       payload: {},
       knowledgeBaseId: 'test-kb',
@@ -130,19 +135,18 @@ describe('authenticated command connection', () => {
     });
     client.reconnect();
     release();
-    await authenticate(MockWebSocket.instances.at(-1)!);
+    const next = MockWebSocket.instances.at(-1)!;
+    await authenticate(next);
     expect(mutate).not.toHaveBeenCalled();
-    expect(
-      MockWebSocket.instances.at(-1)!.sentMessages.some((s) => s.includes('"id":"pending"'))
-    ).toBe(false);
+    expect(next.sentMessages.some((frame) => frame.includes('"id":"2"'))).toBe(false);
   });
 
-  it('caps retries at 1.5 seconds, supports wakeup and cancels on shutdown', async () => {
+  it('caps retries at 1 second and cancels them on shutdown', async () => {
     vi.useFakeTimers();
     MockWebSocket.mode = 'close';
     start();
-    for (let i = 0; i < 8; i++) await vi.advanceTimersByTimeAsync(1501);
-    expect(client.getReconnectMetadata().lastRetryDelayMs).toBeLessThanOrEqual(1500);
+    for (let i = 0; i < 8; i++) await vi.advanceTimersByTimeAsync(1001);
+    expect(client.getReconnectMetadata().lastRetryDelayMs).toBeLessThanOrEqual(1000);
     const count = MockWebSocket.instances.length;
     client.nudgeReconnect('focus');
     expect(MockWebSocket.instances.length).toBeGreaterThan(count);
@@ -154,7 +158,7 @@ describe('authenticated command connection', () => {
     expect(client.getRetryPhase()).toBe('idle');
   });
 
-  it('waits for in-flight native work before accepting another session', async () => {
+  it('waits for in-flight native work before answering a new handshake', async () => {
     const { ws } = start();
     let release!: () => void;
     const pending = new Promise<void>((resolve) => {
@@ -167,7 +171,7 @@ describe('authenticated command connection', () => {
     client.setMessageHandler(handler);
     await authenticate(ws);
     ws.simulateMessage({
-      id: 'slow',
+      id: '1',
       action: 'sdk_call',
       payload: {},
       knowledgeBaseId: 'test-kb',
@@ -177,19 +181,14 @@ describe('authenticated command connection', () => {
     client.reconnect();
     const next = MockWebSocket.instances.at(-1)!;
     await vi.waitFor(() => expect(next.readyState).toBe(MockWebSocket.OPEN));
-    next.simulateMessage({
-      type: 'challenge',
-      protocolVersion: 1,
-      nonce: NONCE,
-      proof: sign(TEST_TOKEN, 'cli:' + NONCE),
-    });
+    next.simulateMessage({ type: 'hello', protocolVersion: 2, version: 'next-cli' });
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(next.sentMessages).toHaveLength(0);
     release();
     await vi.waitFor(() =>
-      expect(next.sentMessages.some((s) => s.includes('"type":"hello"'))).toBe(true)
+      expect(next.sentMessages.some((frame) => frame.includes('"type":"ready"'))).toBe(true)
     );
-    expect(ws.sentMessages.some((s) => s.includes('"id":"slow"'))).toBe(false);
+    expect(ws.sentMessages.some((frame) => frame.includes('"id":"1"'))).toBe(false);
   });
 
   it('enforces byte limits for Unicode frames before dispatch', async () => {
@@ -197,12 +196,12 @@ describe('authenticated command connection', () => {
     const handler = vi.fn();
     client.setMessageHandler(handler);
     await authenticate(ws);
-    ws.simulateMessage(JSON.stringify({ id: 'large', payload: '\u4e2d'.repeat(3 * 1024 * 1024) }));
+    ws.simulateMessage(JSON.stringify({ id: '1', payload: '\u4e2d'.repeat(3 * 1024 * 1024) }));
     await vi.waitFor(() => expect(ws.readyState).toBe(MockWebSocket.CLOSED));
     expect(handler).not.toHaveBeenCalled();
   });
 
-  it('times out incomplete authentication without hanging retries', async () => {
+  it('times out an incomplete handshake without hanging retries', async () => {
     vi.useFakeTimers();
     const { ws } = start();
     await vi.advanceTimersByTimeAsync(5001);
@@ -210,18 +209,21 @@ describe('authenticated command connection', () => {
     expect(client.getReconnectMetadata().nextRetryAt).toBeDefined();
   });
 
-  it('accepts only a loopback endpoint and valid HMACs', async () => {
-    expect(loopbackUrl('ws://127.0.0.1:3002')).toBe('ws://127.0.0.1:3002/');
+  it('accepts only the fixed loopback endpoint and canonical request IDs', () => {
+    expect(PROTOCOL_VERSION).toBe(2);
+    expect(fixedBridgeUrl()).toBe('ws://127.0.0.1:3002/');
     for (const url of [
       'wss://example.com',
       'ws://localhost:3002',
+      'ws://127.0.0.1:3003',
       'ws://127.0.0.1/path',
       'ws://user@127.0.0.1:3002',
-      'ws://127.0.0.1/?q=1',
+      'ws://127.0.0.1:3002/?q=1',
     ])
-      expect(() => loopbackUrl(url)).toThrow();
-    expect(await verifyProof(TEST_TOKEN, 'test', sign(TEST_TOKEN, 'test'))).toBe(true);
-    expect(await verifyProof(TEST_TOKEN, 'test', 'bad')).toBe(false);
-    expect(await verifyProof(TEST_TOKEN, 'different', sign(TEST_TOKEN, 'test'))).toBe(false);
+      expect(() => fixedBridgeUrl(url)).toThrow();
+    expect(requestSequence('1')).toBe(1);
+    expect(requestSequence(String(Number.MAX_SAFE_INTEGER))).toBe(Number.MAX_SAFE_INTEGER);
+    for (const id of ['', '0', '01', '+1', '-1', '1.0', '1e2', ' 1', 1, null])
+      expect(() => requestSequence(id)).toThrow('Invalid request ID');
   });
 });

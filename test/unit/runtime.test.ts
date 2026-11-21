@@ -1,4 +1,4 @@
-import { FocusEvents, SettingEvents, WindowEvents } from '@remnote/plugin-sdk';
+import { FocusEvents, WindowEvents } from '@remnote/plugin-sdk';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import {
   initializeBridgeRuntime,
@@ -7,26 +7,21 @@ import {
 } from '../../src/bridge/runtime';
 import { SDK_CATALOG_HASH } from '../../src/api/sdk-capabilities.generated';
 import { MockRemNotePlugin, MockWebSocket } from '../helpers/mocks';
-import { authenticate, request, TEST_TOKEN, NONCE, sign } from '../helpers/connection';
-import {
-  SETTING_PAIRING_TOKEN,
-  SETTING_ACCEPT_WRITE_OPERATIONS,
-  SETTING_ACCEPT_REPLACE_OPERATION,
-  SETTING_WS_URL,
-} from '../../src/settings';
+import { authenticate, request } from '../helpers/connection';
 import { ACCESS_CHECK_TTL_MS } from '../../src/bridge/access-check';
 
 let plugin: MockRemNotePlugin;
 beforeEach(() => {
   vi.stubGlobal('WebSocket', MockWebSocket);
   plugin = new MockRemNotePlugin();
-  plugin.setTestSetting(SETTING_PAIRING_TOKEN, TEST_TOKEN);
 });
 afterEach(() => {
   shutdownBridgeRuntime();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   MockWebSocket.reset();
 });
+
 async function start() {
   const runtime = await initializeBridgeRuntime(plugin as never);
   const ws = MockWebSocket.instances.at(-1)!;
@@ -34,26 +29,31 @@ async function start() {
   await vi.waitFor(() => expect(runtime.getSnapshot().status).toBe('connected'));
   return { ws, runtime };
 }
-describe('SDK-only runtime', () => {
-  it('serves status and the generated catalog without the sidebar or business handlers', async () => {
+
+describe('zero-configuration SDK runtime', () => {
+  it('serves status, live catalog identity, and no business actions', async () => {
     const { ws, runtime } = await start();
     expect(await initializeBridgeRuntime(plugin as never)).toBe(runtime);
     expect(getBridgeRuntime()).toBe(runtime);
     expect(await request(ws, 'get_status')).toMatchObject({
       result: {
         connected: true,
-        protocolVersion: 1,
+        protocolVersion: 2,
+        pluginVersion: '0.26.0',
         pluginId: 'remnote-cli-bridge',
         sdkVersion: '0.0.46',
+        sdkCatalogHash: SDK_CATALOG_HASH,
         knowledgeBaseId: 'test-kb',
-        acceptWriteOperations: false,
+        knowledgeBaseName: 'Test KB',
+        nativeTransactions: false,
       },
     });
     expect(runtime.getSnapshot()).toMatchObject({
       pluginId: 'remnote-cli-bridge',
-      protocolVersion: 1,
+      protocolVersion: 2,
       sdkVersion: '0.0.46',
       knowledgeBaseId: 'test-kb',
+      wsUrl: 'ws://127.0.0.1:3002/',
     });
     expect(await request(ws, 'get_sdk_capabilities')).toMatchObject({
       result: { sdkCatalogHash: SDK_CATALOG_HASH },
@@ -63,42 +63,31 @@ describe('SDK-only runtime', () => {
     });
     expect(runtime.getSnapshot().requestCount).toBe(3);
     expect(plugin.rem.createRem).not.toHaveBeenCalled();
-    const listener = vi.fn();
-    const unsubscribe = runtime.subscribe(listener);
-    unsubscribe();
-    const count = listener.mock.calls.length;
-    runtime.reconnect();
-    expect(listener).toHaveBeenCalledTimes(count);
-    shutdownBridgeRuntime();
-    expect(getBridgeRuntime()).toBeNull();
-    expect(plugin.event.removeListener).toHaveBeenCalled();
+    expect(plugin.settings.getSetting).not.toHaveBeenCalled();
+    expect(plugin.settings.registerBooleanSetting).not.toHaveBeenCalled();
+    expect(plugin.settings.registerStringSetting).not.toHaveBeenCalled();
   });
 
-  it('surfaces failed native authorization without exposing the pairing secret', async () => {
+  it('surfaces failed knowledge-base identity before replying ready', async () => {
     plugin.kb.getCurrentKnowledgeBaseData.mockRejectedValue(
       new Error('KnowledgeBaseInfo Read denied')
     );
     const runtime = await initializeBridgeRuntime(plugin as never);
     const ws = MockWebSocket.instances.at(-1)!;
     await vi.waitFor(() => expect(ws.readyState).toBe(MockWebSocket.OPEN));
-    ws.simulateMessage({
-      type: 'challenge',
-      protocolVersion: 1,
-      nonce: NONCE,
-      proof: sign(TEST_TOKEN, 'cli:' + NONCE),
-    });
+    ws.simulateMessage({ type: 'hello', protocolVersion: 2, version: 'test-cli' });
     await vi.waitFor(() =>
       expect(runtime.getSnapshot()).toMatchObject({
         authorizationError: 'KnowledgeBaseInfo Read denied',
       })
     );
-    expect(JSON.stringify(runtime.getSnapshot())).not.toContain(TEST_TOKEN);
     expect(ws.sentMessages).toHaveLength(0);
     expect(plugin.rem.createRem).not.toHaveBeenCalled();
   });
 
-  it('allows reads while writes are disabled and requires both destructive gates', async () => {
+  it('allows official reads and writes without bridge gates and keeps explicit destructive approval', async () => {
     const rem = plugin.addTestRem('r', 'Keep');
+    const setText = vi.spyOn(rem, 'setText');
     const remove = vi.spyOn(rem, 'remove');
     const { ws } = await start();
     expect(
@@ -110,16 +99,15 @@ describe('SDK-only runtime', () => {
         targetId: 'r',
         args: [['Changed']],
       })
-    ).toMatchObject({ error: expect.stringContaining('Write operations are disabled') });
-    plugin.setTestSetting(SETTING_ACCEPT_WRITE_OPERATIONS, true);
+    ).toMatchObject({ result: { value: { $type: 'undefined' } } });
+    expect(setText).toHaveBeenCalledOnce();
     expect(
       await request(ws, 'sdk_call', {
-        capability: 'rem:remove',
-        targetId: 'r',
-        allowDestructive: true,
+        capability: 'namespace:settings.registerBooleanSetting',
+        args: [{ id: 'official-sdk-setting', title: 'Official SDK setting', defaultValue: false }],
       })
-    ).toMatchObject({ error: expect.stringContaining('Destructive operations are disabled') });
-    plugin.setTestSetting(SETTING_ACCEPT_REPLACE_OPERATION, true);
+    ).toMatchObject({ result: { value: { $type: 'undefined' } } });
+    expect(plugin.settings.registerBooleanSetting).toHaveBeenCalledOnce();
     expect(
       await request(ws, 'sdk_call', { capability: 'rem:remove', targetId: 'r' })
     ).toMatchObject({ error: expect.stringContaining('allowDestructive=true') });
@@ -134,48 +122,29 @@ describe('SDK-only runtime', () => {
     expect(remove).toHaveBeenCalledOnce();
   });
 
-  it.each(['write', 'kb', 'pairing'])(
-    'rechecks %s after awaited target resolution',
-    async (change) => {
-      plugin.setTestSetting(SETTING_ACCEPT_WRITE_OPERATIONS, true);
-      const rem = plugin.addTestRem('r', 'Keep');
-      const mutate = vi.spyOn(rem, 'setText');
-      const { ws } = await start();
-      plugin.rem.findOne.mockImplementationOnce(async () => {
-        if (change === 'write') {
-          plugin.setTestSetting(SETTING_ACCEPT_WRITE_OPERATIONS, false);
-          plugin.emitEvent(
-            SettingEvents.SettingChanged,
-            undefined,
-            SETTING_ACCEPT_WRITE_OPERATIONS
-          );
-        }
-        if (change === 'kb') {
-          plugin.kb.getCurrentKnowledgeBaseData.mockResolvedValue({ _id: 'other', name: 'Other' });
-          const now = Date.now();
-          vi.spyOn(Date, 'now').mockReturnValue(now + ACCESS_CHECK_TTL_MS);
-        }
-        if (change === 'pairing') {
-          plugin.setTestSetting(SETTING_PAIRING_TOKEN, 'c'.repeat(64));
-          plugin.emitEvent(SettingEvents.SettingChanged, undefined, SETTING_PAIRING_TOKEN);
-        }
-        return rem;
-      });
-      expect(
-        (
-          await request(ws, 'sdk_call', {
-            capability: 'rem:setText',
-            targetId: 'r',
-            args: [['Changed']],
-          })
-        ).error
-      ).toBeDefined();
-      expect(mutate).not.toHaveBeenCalled();
-    }
-  );
+  it('stops writes after the active knowledge base changes', async () => {
+    const rem = plugin.addTestRem('r', 'Keep');
+    const mutate = vi.spyOn(rem, 'setText');
+    const { ws } = await start();
+    plugin.rem.findOne.mockImplementationOnce(async () => {
+      plugin.kb.getCurrentKnowledgeBaseData.mockResolvedValue({ _id: 'other', name: 'Other' });
+      const now = Date.now();
+      vi.spyOn(Date, 'now').mockReturnValue(now + ACCESS_CHECK_TTL_MS);
+      return rem;
+    });
+    expect(
+      (
+        await request(ws, 'sdk_call', {
+          capability: 'rem:setText',
+          targetId: 'r',
+          args: [['Changed']],
+        })
+      ).error
+    ).toContain('Knowledge base changed');
+    expect(mutate).not.toHaveBeenCalled();
+  });
 
-  it('rejects unsafe native scopes without blocking status or reconnection', async () => {
-    plugin.setTestSetting(SETTING_ACCEPT_WRITE_OPERATIONS, true);
+  it('keeps native transactions unavailable without blocking status or reconnection', async () => {
     const { ws, runtime } = await start();
     for (const action of ['transaction_begin', 'transaction_end']) {
       expect(await request(ws, action, { commit: false })).toMatchObject({
@@ -196,7 +165,7 @@ describe('SDK-only runtime', () => {
     expect(MockWebSocket.instances).toHaveLength(2);
   });
 
-  it('nudges reconnect on native activity and unregisters all listeners', async () => {
+  it('nudges reconnect on native activity and unregisters listeners', async () => {
     const { ws, runtime } = await start();
     ws.close(1000, 'Idle');
     plugin.emitEvent(FocusEvents.FocusedRemChange, {});
@@ -213,9 +182,10 @@ describe('SDK-only runtime', () => {
     );
   });
 
-  it('shares one in-flight settings and knowledge-base read across concurrent sdk calls', async () => {
+  it('shares one knowledge-base read across concurrent SDK calls', async () => {
     const { ws } = await start();
     plugin.addTestRem('r', 'Keep');
+    vi.spyOn(Date, 'now').mockReturnValue(Date.now() + ACCESS_CHECK_TTL_MS + 1);
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {
       release = resolve;
@@ -243,10 +213,10 @@ describe('SDK-only runtime', () => {
     expect(reads).toBe(1);
   });
 
-  it('reuses the access snapshot for 100ms and drops it on SettingChanged', async () => {
+  it('reuses the active knowledge-base snapshot for 100ms', async () => {
     const { ws } = await start();
     plugin.addTestRem('r', 'Keep');
-    let now = 10_000;
+    let now = Date.now() + ACCESS_CHECK_TTL_MS + 1;
     vi.spyOn(Date, 'now').mockImplementation(() => now);
     const read = () =>
       request(ws, 'sdk_call', { capability: 'namespace:rem.findOne', args: ['r'] });
@@ -254,26 +224,11 @@ describe('SDK-only runtime', () => {
     const after = plugin.kb.getCurrentKnowledgeBaseData.mock.calls.length;
     await read();
     expect(plugin.kb.getCurrentKnowledgeBaseData.mock.calls.length).toBe(after);
-    plugin.emitEvent(SettingEvents.SettingChanged, undefined, SETTING_WS_URL);
-    await read();
-    expect(plugin.kb.getCurrentKnowledgeBaseData.mock.calls.length).toBe(after + 1);
     now += ACCESS_CHECK_TTL_MS - 1;
     await read();
-    expect(plugin.kb.getCurrentKnowledgeBaseData.mock.calls.length).toBe(after + 1);
+    expect(plugin.kb.getCurrentKnowledgeBaseData.mock.calls.length).toBe(after);
     now += 1;
     await read();
-    expect(plugin.kb.getCurrentKnowledgeBaseData.mock.calls.length).toBe(after + 2);
-  });
-
-  it('does not drop the access cache for an unrelated SettingChanged key', async () => {
-    const { ws } = await start();
-    plugin.addTestRem('r', 'Keep');
-    const read = () =>
-      request(ws, 'sdk_call', { capability: 'namespace:rem.findOne', args: ['r'] });
-    await read();
-    const after = plugin.kb.getCurrentKnowledgeBaseData.mock.calls.length;
-    plugin.emitEvent(SettingEvents.SettingChanged, undefined, 'unrelated-setting');
-    await read();
-    expect(plugin.kb.getCurrentKnowledgeBaseData.mock.calls.length).toBe(after);
+    expect(plugin.kb.getCurrentKnowledgeBaseData.mock.calls.length).toBe(after + 1);
   });
 });

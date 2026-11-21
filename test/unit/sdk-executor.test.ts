@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { Card, PluginRem } from '@remnote/plugin-sdk';
 import { executeSdkCall, getSdkCapabilities } from '../../src/api/sdk-executor';
 import { MockRemNotePlugin } from '../helpers/mocks';
-import { SETTING_ACCEPT_REPLACE_OPERATION, SETTING_PAIRING_TOKEN } from '../../src/settings';
 
 const allow = async () => {};
 const readOnly = async (mode: string) => {
@@ -46,22 +45,6 @@ describe('SDK executor', () => {
         })
       ).rejects.toThrow(/namespace:rem.findOne.*identity/);
     }
-  });
-  it('does not expose pairing secrets or allow SDK callers to enable destructive operations', async () => {
-    const plugin = new MockRemNotePlugin();
-    for (const [capability, args] of [
-      ['namespace:settings.getSetting', [SETTING_PAIRING_TOKEN]],
-      [
-        'namespace:settings.registerBooleanSetting',
-        [{ id: SETTING_ACCEPT_REPLACE_OPERATION, defaultValue: true }],
-      ],
-    ] as const) {
-      await expect(
-        executeSdkCall(plugin as never, allow, { capability, args: [...args] })
-      ).rejects.toThrow('security settings');
-    }
-    expect(plugin.settings.getSetting).not.toHaveBeenCalled();
-    expect(plugin.settings.registerBooleanSetting).not.toHaveBeenCalled();
   });
   it('allows reads with writes disabled and rechecks authorization after target lookup', async () => {
     const plugin = new MockRemNotePlugin();
@@ -206,7 +189,7 @@ describe('SDK executor', () => {
     ).toBe(result.capabilities.length);
   });
 
-  it('requires the write gate for methods that can create daily documents', async () => {
+  it('passes a write capability through authorization before opening a daily document', async () => {
     const plugin = new MockRemNotePlugin();
 
     await expect(

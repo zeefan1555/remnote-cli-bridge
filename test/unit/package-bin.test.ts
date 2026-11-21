@@ -7,7 +7,7 @@ import { resolve } from 'node:path';
 describe('package bin metadata', () => {
   it('exposes the local production server executable', () => {
     expect(packageJson.name).toBe('remnote-cli-bridge');
-    expect(packageJson.version).toBe('0.25.0');
+    expect(packageJson.version).toBe('0.26.0');
     expect(packageJson.bin).toEqual({
       'remnote-cli-bridge': './bin/remnote-cli-bridge.js',
     });

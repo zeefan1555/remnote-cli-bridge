@@ -37,6 +37,7 @@ export function AutomationBridgeWidget() {
   return (
     <main style={{ padding: 12, fontFamily: 'system-ui', fontSize: 13, overflowWrap: 'anywhere' }}>
       <h3 style={{ fontSize: 16, margin: '0 0 12px' }}>RemNote CLI Bridge</h3>
+      <p style={{ margin: '0 0 10px' }}>No setup required. Install the CLI and run a command.</p>
       <p role="status">{snapshot?.status === 'connected' ? 'CLI connected' : 'Waiting for CLI'}</p>
       <dl>
         <dt>Plugin ID</dt>
@@ -51,7 +52,7 @@ export function AutomationBridgeWidget() {
             ? `${snapshot.knowledgeBaseName} (${snapshot.knowledgeBaseId})`
             : 'Not checked'}
         </dd>
-        <dt>Endpoint</dt>
+        <dt>Fixed endpoint</dt>
         <dd>{snapshot?.wsUrl}</dd>
         <dt>SDK calls</dt>
         <dd>{snapshot?.requestCount ?? 0}</dd>

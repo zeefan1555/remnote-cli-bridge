@@ -11,6 +11,24 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Point the marketplace changelog URL and companion CLI documentation links at the `main` default branch.
 
+## [0.26.0] - 2026-11-22
+
+### Changed
+
+- Replace protocol 1 pairing with protocol 2 zero-configuration startup. The CLI sends `hello`; the plugin answers `ready` with plugin/SDK versions, catalog hash, and the live active knowledge-base identity.
+- Connect only to `ws://127.0.0.1:3002/`. Delete the token, HMAC proof, URL, KB-selection, write-permission, and destructive-permission settings.
+- Use canonical positive integer request IDs with one high-water mark. Add bounded waiting work, queued frames, and aggregate queued bytes without imposing cumulative request-history limits.
+- Expose every supported capability in the generated official SDK allowlist. Keep private methods, callbacks, persistent handles, unsupported methods, and native transactions unavailable.
+- Bind each session to the active knowledge base and stop later writes after a detected switch. Official RemNote scope checks remain live.
+
+### Security
+
+- Define the trust boundary as the current operating-system user. The companion CLI rejects ordinary webpage Origins, while documentation states that Origin checks do not isolate native same-user processes.
+
+### Removed
+
+- Pairing command/file support on the plugin side, Bridge settings registration, mutual authentication, and plugin-side write/destructive gates.
+
 ## [0.25.0] - 2026-10-17
 
 ### Changed

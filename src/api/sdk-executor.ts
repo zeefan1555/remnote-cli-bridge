@@ -1,11 +1,5 @@
 import { Card, PluginRem, Query_DUPE_2, type ReactRNPlugin } from '@remnote/plugin-sdk';
 import {
-  SETTING_ACCEPT_WRITE_OPERATIONS,
-  SETTING_ACCEPT_REPLACE_OPERATION,
-  SETTING_PAIRING_TOKEN,
-  SETTING_WS_URL,
-} from '../settings';
-import {
   REMNOTE_SDK_VERSION,
   SDK_CAPABILITIES,
   SDK_CATALOG_HASH,
@@ -319,28 +313,6 @@ export async function executeSdkCall(
   if (params.args !== undefined && !Array.isArray(params.args)) {
     throw new Error('sdk_call args must be an array');
   }
-  const protectedSettings = [
-    SETTING_ACCEPT_WRITE_OPERATIONS,
-    SETTING_ACCEPT_REPLACE_OPERATION,
-    SETTING_PAIRING_TOKEN,
-    SETTING_WS_URL,
-  ];
-  const settingArg = params.args?.[0];
-  const settingId =
-    typeof settingArg === 'string'
-      ? settingArg
-      : settingArg && typeof settingArg === 'object' && 'id' in settingArg
-        ? String(settingArg.id)
-        : '';
-  if (
-    capability.target === 'namespace' &&
-    capability.namespace === 'settings' &&
-    protectedSettings.includes(settingId) &&
-    (capability.method !== 'getSetting' || settingId === SETTING_PAIRING_TOKEN)
-  ) {
-    throw new Error('Bridge security settings can only be changed in RemNote');
-  }
-
   serializeSdkValue(params.args ?? []);
   let target: object;
   if (capability.target === 'rem') {

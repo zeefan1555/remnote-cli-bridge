@@ -1,16 +1,8 @@
 declare const __PLUGIN_VERSION__: string;
-import { FocusEvents, SettingEvents, WindowEvents, type ReactRNPlugin } from '@remnote/plugin-sdk';
+import { FocusEvents, WindowEvents, type ReactRNPlugin } from '@remnote/plugin-sdk';
 import manifest from '../../public/manifest.json';
 import { REMNOTE_SDK_VERSION, SDK_CATALOG_HASH } from '../api/sdk-capabilities.generated';
 import { executeSdkCall, getSdkCapabilities, type SdkCallParams } from '../api/sdk-executor';
-import {
-  readAutomationBridgeSettings,
-  SETTING_ACCEPT_REPLACE_OPERATION,
-  SETTING_ACCEPT_WRITE_OPERATIONS,
-  SETTING_PAIRING_TOKEN,
-  SETTING_WS_URL,
-  type AutomationBridgeSettings,
-} from '../settings';
 import { createAccessCheckCache } from './access-check';
 import {
   WebSocketClient,
@@ -18,7 +10,7 @@ import {
   type RetryPhase,
   type CompanionInfo,
 } from './websocket-client';
-import { PROTOCOL_VERSION } from './protocol';
+import { BRIDGE_WEBSOCKET_URL, PROTOCOL_VERSION } from './protocol';
 import { registerBridgeRuntimeUiBridge } from '../widgets/runtime-ui-bridge';
 
 export interface LogEntry {
@@ -58,7 +50,6 @@ export const MAX_LOGS = 50;
 
 class BridgeRuntimeController implements BridgeRuntime {
   private client!: WebSocketClient;
-  private sessionToken = '';
   private companion?: CompanionInfo;
   private lastConnectedAt?: number;
   private logs: LogEntry[] = [];
@@ -67,20 +58,11 @@ class BridgeRuntimeController implements BridgeRuntime {
   private authorizationError?: string;
   private readonly listeners = new Set<(snapshot: BridgeRuntimeSnapshot) => void>();
   private readonly cleanup: Array<() => void> = [];
-  private readonly access = createAccessCheckCache(() => this.loadAccess());
+  private readonly access = createAccessCheckCache(() => this.readKnowledgeBase());
   private stopped = false;
 
-  constructor(
-    private readonly plugin: ReactRNPlugin,
-    private settings: AutomationBridgeSettings
-  ) {
+  constructor(private readonly plugin: ReactRNPlugin) {
     this.client = new WebSocketClient({
-      url: settings.wsUrl,
-      pluginVersion: __PLUGIN_VERSION__,
-      getToken: async () => {
-        this.sessionToken = (await readAutomationBridgeSettings(plugin)).pairingToken;
-        return this.sessionToken;
-      },
       getIdentity: () => this.identity(),
       onStatusChange: (status) => {
         if (status === 'connected') this.lastConnectedAt = Date.now();
@@ -103,18 +85,12 @@ class BridgeRuntimeController implements BridgeRuntime {
       },
     });
     this.client.setMessageHandler(async (request, assertSession) => {
-      const authorize = async (mode: 'read' | 'write' | 'interactive' | 'destructive') => {
+      const authorize = async (_mode: 'read' | 'write' | 'interactive' | 'destructive') => {
         assertSession();
-        const { settings, knowledgeBaseId } = await this.access.get();
+        const knowledgeBase = await this.access.get();
         assertSession();
-        if (settings.pairingToken !== this.sessionToken)
-          throw new Error('Pairing changed; start a new session');
-        if (knowledgeBaseId !== request.knowledgeBaseId)
-          throw new Error('Knowledge base changed; writes stopped');
-        if (mode !== 'read' && !settings.acceptWriteOperations)
-          throw new Error('Write operations are disabled');
-        if (mode === 'destructive' && !settings.acceptReplaceOperation)
-          throw new Error('Destructive operations are disabled');
+        if (knowledgeBase._id !== request.knowledgeBaseId)
+          throw new Error('Knowledge base changed; session stopped');
       };
       await authorize('read');
       this.requestCount++;
@@ -124,10 +100,7 @@ class BridgeRuntimeController implements BridgeRuntime {
           return {
             connected: true,
             protocolVersion: PROTOCOL_VERSION,
-            pluginVersion: __PLUGIN_VERSION__,
             pluginId: manifest.id,
-            sdkVersion: REMNOTE_SDK_VERSION,
-            sdkCatalogHash: SDK_CATALOG_HASH,
             nativeTransactions: false,
             ...(await this.identity()),
           };
@@ -144,13 +117,6 @@ class BridgeRuntimeController implements BridgeRuntime {
           throw new Error('Unknown SDK gateway action: ' + request.action);
       }
     });
-  }
-  private async loadAccess() {
-    const [settings, kb] = await Promise.all([
-      readAutomationBridgeSettings(this.plugin),
-      this.readKnowledgeBase(),
-    ]);
-    return { settings, knowledgeBaseId: kb._id };
   }
   private async readKnowledgeBase() {
     try {
@@ -171,35 +137,17 @@ class BridgeRuntimeController implements BridgeRuntime {
     }
   }
   private async identity() {
-    const [settings, kb] = await Promise.all([
-      readAutomationBridgeSettings(this.plugin),
-      this.readKnowledgeBase(),
-    ]);
+    const kb = await this.access.get();
     return {
+      pluginVersion: __PLUGIN_VERSION__,
+      sdkVersion: REMNOTE_SDK_VERSION,
+      sdkCatalogHash: SDK_CATALOG_HASH,
       knowledgeBaseId: kb._id,
       knowledgeBaseName: kb.name,
-      acceptWriteOperations: settings.acceptWriteOperations,
-      acceptReplaceOperation: settings.acceptReplaceOperation,
     };
   }
   start(): void {
     this.cleanup.push(registerBridgeRuntimeUiBridge({ plugin: this.plugin, runtime: this }));
-    // SDK 0.0.46 keys SettingChanged by setting id and only notifies an exact listenerKey.
-    // There is no knowledge-base change event.
-    const invalidateAccess = () => this.access.invalidate();
-    const settingIds = [
-      undefined,
-      SETTING_ACCEPT_WRITE_OPERATIONS,
-      SETTING_ACCEPT_REPLACE_OPERATION,
-      SETTING_PAIRING_TOKEN,
-      SETTING_WS_URL,
-    ];
-    for (const settingId of settingIds) {
-      this.plugin.event.addListener(SettingEvents.SettingChanged, settingId, invalidateAccess);
-      this.cleanup.push(() =>
-        this.plugin.event.removeListener(SettingEvents.SettingChanged, settingId, invalidateAccess)
-      );
-    }
     for (const event of [FocusEvents.FocusedRemChange, WindowEvents.FocusedPaneChange]) {
       const callback = () => this.nudgeReconnect('activity');
       this.plugin.event.addListener(event, undefined, callback);
@@ -229,7 +177,7 @@ class BridgeRuntimeController implements BridgeRuntime {
       knowledgeBaseId: this.knowledgeBase?._id,
       knowledgeBaseName: this.knowledgeBase?.name,
       authorizationError: this.authorizationError,
-      wsUrl: this.settings.wsUrl,
+      wsUrl: BRIDGE_WEBSOCKET_URL,
       logs: [...this.logs],
       companion: this.companion,
       requestCount: this.requestCount,
@@ -263,7 +211,7 @@ class BridgeRuntimeController implements BridgeRuntime {
 let runtime: BridgeRuntimeController | null = null;
 export async function initializeBridgeRuntime(plugin: ReactRNPlugin): Promise<BridgeRuntime> {
   if (!runtime) {
-    runtime = new BridgeRuntimeController(plugin, await readAutomationBridgeSettings(plugin));
+    runtime = new BridgeRuntimeController(plugin);
     runtime.start();
   }
   return runtime;

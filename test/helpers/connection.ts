@@ -1,26 +1,25 @@
-import { createHmac } from 'node:crypto';
 import { expect, vi } from 'vitest';
 import { MockWebSocket } from './mocks';
 
-export const TEST_TOKEN = 'a'.repeat(64);
-export const NONCE = 'b'.repeat(64);
-export const sign = (token: string, value: string) =>
-  createHmac('sha256', token).update(value).digest('hex');
-export async function authenticate(ws: MockWebSocket, token = TEST_TOKEN): Promise<void> {
+export async function authenticate(ws: MockWebSocket, version = 'test-cli'): Promise<void> {
   await vi.waitFor(() => expect(ws.readyState).toBe(MockWebSocket.OPEN));
-  ws.simulateMessage({
-    type: 'challenge',
-    protocolVersion: 1,
-    nonce: NONCE,
-    proof: sign(token, 'cli:' + NONCE),
-  });
+  ws.simulateMessage({ type: 'hello', protocolVersion: 2, version });
   await vi.waitFor(() => expect(ws.sentMessages.length).toBeGreaterThan(0));
-  const hello = JSON.parse(ws.sentMessages[0]);
-  expect(hello.type).toBe('hello');
-  expect(hello.identity.pluginId).toBeUndefined();
-  expect(hello.proof).toBe(sign(token, 'plugin:' + NONCE + ':' + JSON.stringify(hello.identity)));
-  expect(JSON.stringify(hello)).not.toContain(token);
-  ws.simulateMessage({ type: 'ready', protocolVersion: 1, version: 'arbitrary-cli-version' });
+  const ready = JSON.parse(ws.sentMessages[0]);
+  expect(ready).toMatchObject({
+    type: 'ready',
+    protocolVersion: 2,
+    identity: {
+      pluginVersion: expect.any(String),
+      sdkVersion: '0.0.46',
+      sdkCatalogHash: expect.any(String),
+      knowledgeBaseId: 'test-kb',
+      knowledgeBaseName: expect.any(String),
+    },
+  });
+  expect(ready.identity.pluginId).toBeUndefined();
+  expect(ready.identity.acceptWriteOperations).toBeUndefined();
+  expect(ready.identity.acceptReplaceOperation).toBeUndefined();
 }
 let requestId = 0;
 export async function request(

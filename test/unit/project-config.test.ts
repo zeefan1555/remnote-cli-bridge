@@ -21,7 +21,7 @@ describe('project config', () => {
     expect(parseManifest(manifest).success).toBe(true);
     expect(manifest.id).toBe('remnote-cli-bridge');
     expect(manifest.name).toBe('RemNote CLI Bridge');
-    expect(manifest.version).toEqual({ major: 0, minor: 25, patch: 0 });
+    expect(manifest.version).toEqual({ major: 0, minor: 26, patch: 0 });
     expect(manifest.repoUrl).toBe('https://github.com/zeefan1555/remnote-cli-bridge');
     expect(manifest.projectUrl).toBe('https://github.com/zeefan1555/remnote-cli-bridge');
     expect(manifest.supportUrl).toBe('https://github.com/zeefan1555/remnote-cli-bridge/issues');
