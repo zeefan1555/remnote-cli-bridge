@@ -3,10 +3,10 @@
   "id": "remnote-cli-bridge",
   "name": "RemNote CLI Bridge",
   "author": "zeefan1555",
-  "description": "Authenticated local access to the official RemNote Plugin SDK for remnote-cli.",
+  "description": "Zero-configuration local access to the official RemNote Plugin SDK for remnote-cli.",
   "version": {
     "major": 0,
-    "minor": 25,
+    "minor": 26,
     "patch": 0
   },
   "repoUrl": "https://github.com/zeefan1555/remnote-cli-bridge",

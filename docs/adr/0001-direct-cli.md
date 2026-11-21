@@ -12,10 +12,12 @@ The plugin exposes only atomic RemNote SDK capabilities. Each bridge call invoke
 
 Concurrency is transport-level only.
 
-The plugin owns the official SDK, the generated public allowlist, JSON serialization, mutual authentication, knowledge-base binding, and live permission checks. Gateway actions are `get_status`, `get_sdk_capabilities`, and `sdk_call`. Begin and end transaction requests fail before any native transaction opens. See [ADR 0003](0003-disable-unsafe-native-transactions.md).
+The plugin owns the official SDK, the generated public allowlist, JSON serialization, active knowledge-base identity, and live official permission checks. Gateway actions are `get_status`, `get_sdk_capabilities`, and `sdk_call`. Begin and end transaction requests fail before any native transaction opens. See [ADR 0003](0003-disable-unsafe-native-transactions.md).
 
-Protocol 1 is unchanged by the plugin id rename. The handshake does not carry the plugin id. `get_status.pluginId` reports the manifest id `remnote-cli-bridge`.
+Protocol 2 has no application authentication or custom settings. The CLI binds the fixed loopback endpoint, sends `hello`, and receives `ready` with plugin/SDK versions, catalog hash, and live active knowledge-base identity. `get_status.pluginId` reports the manifest id `remnote-cli-bridge`.
+
+The security boundary is the current operating-system user. The CLI rejects ordinary webpage WebSocket Origins, but native local processes can forge headers, so this is not isolation from a malicious same-user program.
 
 ## Consequences
 
-Workflow changes land in remnote-cli. Changes to the SDK allowlist, permissions, serialization, or the wire handshake land here, with a coordinated CLI update when the CLI depends on that contract.
+Workflow changes land in remnote-cli. After this synchronized protocol migration, the Bridge should change only for an SDK capability/catalog change, serialization or transport-security defect, or a measured transport bottleneck. Other feature work lands in the CLI and Codex plugin.

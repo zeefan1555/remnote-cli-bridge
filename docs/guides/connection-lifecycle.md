@@ -3,7 +3,7 @@
 The RemNote plugin cannot listen on a local TCP port, so it connects outward:
 
 ```text
-RemNote CLI Bridge -> loopback listener owned by the current CLI command
+RemNote CLI Bridge -> ws://127.0.0.1:3002 <-> current CLI command
 ```
 
 There is no resident automation daemon. A plugin waiting between commands is
@@ -11,52 +11,59 @@ healthy; **CLI connected** is expected only while a command is running.
 
 ## Session
 
-1. Plugin activation starts background connection attempts.
-2. The CLI binds `127.0.0.1` on the paired port.
-3. Fresh HMAC challenges authenticate both peers. The secret is never sent.
-   The CLI sends `challenge` with protocol 1, a 64-hex nonce, and a proof of
-   `cli:<nonce>`. The plugin answers with `hello`. `hello.identity` contains
-   `protocolVersion`, `pluginVersion`, `sdkVersion`, `sdkCatalogHash`,
-   `knowledgeBaseId`, `knowledgeBaseName`, `acceptWriteOperations`, and
-   `acceptReplaceOperation`. The plugin id is not part of that handshake.
-   The plugin proof is `plugin:<nonce>:<JSON identity>`. The CLI then sends
-   `ready`. Protocol version stays 1.
-4. The CLI requires the intended KB, protocol 1 and a valid live SDK catalog.
-   `get_status` returns `pluginId` from the manifest, now `remnote-cli-bridge`.
-   A CLI that only displays that field needs no protocol change. A CLI that
-   requires `zeefan-remnote-sdk-bridge` must accept `remnote-cli-bridge`.
-5. Requests use exact IDs, KB binding and deadlines.
-6. Command completion closes the listener and socket; the plugin waits again.
+1. Plugin activation starts bounded retry attempts to the fixed endpoint.
+2. The CLI binds `127.0.0.1:3002` and the plugin opens one WebSocket.
+3. The CLI sends protocol 2 `hello` with its product version. The plugin reads
+   the live active knowledge base and answers `ready` with plugin version, SDK
+   version, SDK catalog hash, knowledge-base id, and knowledge-base name. No
+   token, challenge, proof, pairing setting, URL setting, write switch, or
+   destructive switch is involved.
+4. Requests use canonical positive integer IDs that increase within the session,
+   the connected knowledge-base id, and an absolute deadline.
+5. Command completion closes the listener and socket; the plugin waits again.
 
-The plugin checks pairing, live permissions and the current KB before and after
-each SDK call. Concurrent checks share one read, and a successful read is reused
-for at most 100ms. A change to a bridge setting drops that cache immediately. SDK 0.0.46 has
-no knowledge-base change event, so a KB switch is observed on the next check after
-the cache expires. A token change, KB switch, expired deadline or closed socket
-stops further writes. Native in-flight operations may still finish; no rollback or
-cancellation is inferred from a connection failure.
+The plugin checks the current knowledge base before each SDK call and again after
+it. Concurrent checks share one read, and a successful read is reused for at most
+100ms. SDK 0.0.46 has no knowledge-base change event, so a switch is observed on
+the next check after the cache expires. A knowledge-base switch, expired deadline,
+or closed socket stops later writes. Native in-flight operations may still finish;
+no rollback or cancellation is inferred from a connection failure.
 
 Only one CLI session is admitted. Concurrent CLI invocations fail on the occupied
-port. Up to 16 validated requests run at once. Frame parsing, the handshake, ping
-and request validation stay ordered, and each response carries its request id. A
-handler failure answers only that request. A new plugin session waits for prior
-individual SDK calls to settle and does not write on the closed socket.
+port. Up to 16 validated requests run at once, with at most 16 more waiting. The
+frame queue, aggregate queued bytes, individual frames, responses, and request
+history are bounded. Frame parsing, handshake, and ping handling stay ordered, and
+each response carries its request id. A new session answers its handshake only
+after prior individual SDK calls settle and never writes on the closed socket.
+
+## Security Boundary
+
+The trust boundary is the current operating-system user. Installing the plugin
+and approving RemNote's official scopes trusts programs running as that user.
+
+The CLI listener inspects the WebSocket HTTP upgrade `Origin` header and rejects
+ordinary webpage origins. This prevents an unrelated page from driving the local
+endpoint. It does not isolate native local programs: such a program can forge the
+header. Do not treat Origin validation as authentication between processes.
+
+Official RemNote scope denial is surfaced as an authorization error. The plugin
+does not add a second write or destructive permission model; CLI commands remain
+responsible for explicit confirmation before high-risk operations.
 
 ## Retry And Recovery
 
-Retry delays grow from 250 ms to at most 1.5 seconds, including long idle periods.
-There is no ten-minute standby phase. Activity, visibility and the sidebar
-**Reconnect** button can wake a disconnected plugin. Browser background timer
-throttling can still delay retries; the CLI waits at most 15 seconds for connection.
+Retry delays grow from 250 ms to at most 1 second. Activity, visibility, and
+the sidebar **Reconnect** button can wake a disconnected plugin. Browser
+background timer throttling can still delay retries; the CLI waits at most 15
+seconds for connection.
 
-Check pairing, the exact KB, official `KnowledgeBaseInfo: Read` permission,
-the loopback port and panel errors. Product version numbers are informational;
-capabilities and protocol determine compatibility.
+Check the fixed localhost endpoint, official `KnowledgeBaseInfo: Read` permission,
+and sidebar errors. Product version numbers are informational; protocol and the
+live SDK catalog determine compatibility.
 
 Do not disable browser security protections to make localhost requests work.
 For local development use the documented local-plugin URL; for a blocked browser
-permission, have the user review the specific site permission or use RemNote's
-desktop app. Never silently change network/security settings.
+permission, review the specific site permission or use RemNote desktop.
 
 ## Transactions
 

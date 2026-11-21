@@ -1,11 +1,4 @@
-import { REMNOTE_SDK_VERSION, SDK_CATALOG_HASH } from '../api/sdk-capabilities.generated';
-import {
-  loopbackUrl,
-  MAX_MESSAGE_BYTES,
-  PROTOCOL_VERSION,
-  signProof,
-  verifyProof,
-} from './protocol';
+import { fixedBridgeUrl, MAX_MESSAGE_BYTES, PROTOCOL_VERSION, requestSequence } from './protocol';
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 export type RetryPhase = 'idle' | 'burst';
@@ -28,12 +21,17 @@ export interface BridgeRequest {
   deadline: number;
 }
 export interface BridgeIdentity {
+  pluginVersion: string;
+  sdkVersion: string;
+  sdkCatalogHash: string;
   knowledgeBaseId: string;
   knowledgeBaseName: string;
-  acceptWriteOperations: boolean;
-  acceptReplaceOperation: boolean;
 }
 export const MAX_CONCURRENT_REQUESTS = 16;
+export const MAX_SLOT_WAITERS = MAX_CONCURRENT_REQUESTS;
+export const MAX_OUTSTANDING_REQUESTS = MAX_CONCURRENT_REQUESTS + MAX_SLOT_WAITERS;
+export const MAX_QUEUED_FRAMES = MAX_OUTSTANDING_REQUESTS;
+export const MAX_QUEUED_BYTES = MAX_MESSAGE_BYTES;
 
 class SessionSuperseded extends Error {
   constructor() {
@@ -48,9 +46,6 @@ interface SlotWaiter {
 }
 
 export interface WebSocketClientConfig {
-  url: string;
-  pluginVersion: string;
-  getToken: () => Promise<string>;
   getIdentity: () => Promise<BridgeIdentity>;
   onStatusChange?: (status: ConnectionStatus) => void;
   onRetryPhaseChange?: (phase: RetryPhase) => void;
@@ -69,13 +64,14 @@ export class WebSocketClient {
   // Ordered frames stay on this chain. Native SDK calls cannot be cancelled, so a
   // new session waits until the previous socket's calls settle.
   private queue = Promise.resolve();
+  private queuedFrames = 0;
+  private queuedBytes = 0;
+  private outstanding = 0;
   private inFlight = 0;
   private readonly slotWaiters: SlotWaiter[] = [];
   private readonly sessionWork = new Map<WebSocket, Set<Promise<void>>>();
   private handler?: (request: BridgeRequest, assertSession: () => void) => Promise<unknown>;
-  constructor(private readonly config: WebSocketClientConfig) {
-    loopbackUrl(config.url);
-  }
+  constructor(private readonly config: WebSocketClientConfig) {}
 
   private setStatus(status: ConnectionStatus): void {
     this.status = status;
@@ -89,13 +85,13 @@ export class WebSocketClient {
     clearTimeout(this.retry);
     this.nextRetryAt = undefined;
     this.setStatus('connecting');
-    const ws = new WebSocket(loopbackUrl(this.config.url));
+    const ws = new WebSocket(fixedBridgeUrl());
     this.ws = ws;
     const session = {
       authenticated: false,
-      challenged: false,
+      helloReceived: false,
       identity: undefined as BridgeIdentity | undefined,
-      seen: new Set<string>(),
+      highWaterId: 0,
     };
     const current = () => {
       if (this.ws !== ws || ws.readyState !== WebSocket.OPEN || this.stopped)
@@ -106,11 +102,29 @@ export class WebSocketClient {
       this.handshakeTimer = setTimeout(() => ws.close(4008, 'Authentication timeout'), 5000);
     };
     ws.onmessage = (event) => {
+      if (!this.canSend(ws)) return;
+      const bytes =
+        typeof event.data === 'string' ? new TextEncoder().encode(event.data).byteLength : -1;
+      if (
+        bytes < 0 ||
+        bytes > MAX_MESSAGE_BYTES ||
+        this.queuedFrames >= MAX_QUEUED_FRAMES ||
+        this.queuedBytes + bytes > MAX_QUEUED_BYTES
+      ) {
+        ws.close(4008, 'Protocol or authentication failure');
+        return;
+      }
+      this.queuedFrames++;
+      this.queuedBytes += bytes;
       this.queue = this.queue
         .then(() => this.handleFrame(ws, event, session, current))
-        .catch((error) => {
-          this.config.onLog?.(error instanceof Error ? error.message : String(error), 'error');
+        .catch(() => {
+          this.config.onLog?.('Protocol or authentication failure', 'error');
           ws.close(4008, 'Protocol or authentication failure');
+        })
+        .finally(() => {
+          this.queuedFrames--;
+          this.queuedBytes -= bytes;
         });
     };
     ws.onclose = (event) => {
@@ -134,9 +148,9 @@ export class WebSocketClient {
     event: MessageEvent,
     session: {
       authenticated: boolean;
-      challenged: boolean;
+      helloReceived: boolean;
       identity?: BridgeIdentity;
-      seen: Set<string>;
+      highWaterId: number;
     },
     current: () => void
   ): Promise<void> {
@@ -149,41 +163,29 @@ export class WebSocketClient {
       throw new Error('Invalid or oversized frame');
     const message = JSON.parse(event.data);
     if (!message || typeof message !== 'object') throw new Error('Invalid frame');
-    if (message.type === 'challenge' && !session.challenged) {
-      session.challenged = true;
-      if (
-        message.protocolVersion !== PROTOCOL_VERSION ||
-        typeof message.nonce !== 'string' ||
-        !/^[a-f0-9]{64}$/.test(message.nonce)
-      )
-        throw new Error('Protocol mismatch');
-      const token = await this.config.getToken();
-      if (
-        !/^[a-f0-9]{64}$/.test(token) ||
-        !(await verifyProof(token, 'cli:' + message.nonce, message.proof))
-      )
-        throw new Error('CLI authentication failed');
-      current();
-      session.identity = await this.config.getIdentity();
-      const hello = {
-        protocolVersion: PROTOCOL_VERSION,
-        pluginVersion: this.config.pluginVersion,
-        sdkVersion: REMNOTE_SDK_VERSION,
-        sdkCatalogHash: SDK_CATALOG_HASH,
-        ...session.identity,
-      };
-      const proof = await signProof(token, 'plugin:' + message.nonce + ':' + JSON.stringify(hello));
-      current();
-      ws.send(JSON.stringify({ type: 'hello', identity: hello, proof }));
-      return;
-    }
     if (
-      message.type === 'ready' &&
-      session.challenged &&
-      session.identity &&
+      (message.type === 'hello' || message.type === 'challenge') &&
+      !session.helloReceived &&
       !session.authenticated
     ) {
-      if (message.protocolVersion !== PROTOCOL_VERSION) throw new Error('Protocol mismatch');
+      session.helloReceived = true;
+      if (
+        message.type !== 'hello' ||
+        message.protocolVersion !== PROTOCOL_VERSION ||
+        typeof message.version !== 'string' ||
+        message.version.length === 0 ||
+        message.version.length > 128
+      )
+        throw new Error('Protocol mismatch');
+      session.identity = await this.config.getIdentity();
+      current();
+      ws.send(
+        JSON.stringify({
+          type: 'ready',
+          protocolVersion: PROTOCOL_VERSION,
+          identity: session.identity,
+        })
+      );
       session.authenticated = true;
       clearTimeout(this.handshakeTimer);
       this.attempts = 0;
@@ -197,9 +199,8 @@ export class WebSocketClient {
       ws.send(JSON.stringify({ type: 'pong' }));
       return;
     }
+    const sequence = requestSequence(message.id);
     if (
-      typeof message.id !== 'string' ||
-      message.id.length > 128 ||
       typeof message.action !== 'string' ||
       !message.payload ||
       typeof message.payload !== 'object' ||
@@ -207,11 +208,11 @@ export class WebSocketClient {
       !Number.isSafeInteger(message.deadline) ||
       message.deadline > Date.now() + 65_000 ||
       message.knowledgeBaseId !== session.identity.knowledgeBaseId ||
-      session.seen.has(message.id) ||
-      session.seen.size >= 20_000
+      sequence <= session.highWaterId
     )
       throw new Error('Invalid request, KB binding or duplicate request ID');
-    session.seen.add(message.id);
+    // Consume an ID even when validation later fails inside the SDK.
+    session.highWaterId = sequence;
     const assertSession = () => {
       current();
       if (Date.now() >= message.deadline)
@@ -235,6 +236,9 @@ export class WebSocketClient {
   }
 
   private dispatchRequest(ws: WebSocket, message: BridgeRequest, assertSession: () => void): void {
+    if (this.outstanding >= MAX_OUTSTANDING_REQUESTS)
+      throw new Error('Too many outstanding requests');
+    this.outstanding++;
     const work = this.runRequest(ws, message, assertSession);
     let jobs = this.sessionWork.get(ws);
     if (!jobs) {
@@ -243,6 +247,7 @@ export class WebSocketClient {
     }
     jobs.add(work);
     void work.finally(() => {
+      this.outstanding--;
       jobs.delete(work);
       if (jobs.size === 0 && this.sessionWork.get(ws) === jobs) this.sessionWork.delete(ws);
     });
@@ -253,6 +258,8 @@ export class WebSocketClient {
       this.inFlight += 1;
       return Promise.resolve();
     }
+    if (this.slotWaiters.length >= MAX_SLOT_WAITERS)
+      return Promise.reject(new Error('Too many waiting requests'));
     return new Promise((resolve, reject) => {
       this.slotWaiters.push({
         grant: () => {
@@ -313,7 +320,7 @@ export class WebSocketClient {
 
   private scheduleReconnect(): void {
     clearTimeout(this.retry);
-    const delay = Math.min(250 * 2 ** Math.min(this.attempts++, 3), 1500);
+    const delay = Math.min(250 * 2 ** Math.min(this.attempts++, 2), 1000);
     this.nextRetryAt = Date.now() + delay;
     this.retry = setTimeout(() => this.connect(), delay);
   }

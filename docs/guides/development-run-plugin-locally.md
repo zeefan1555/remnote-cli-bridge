@@ -21,19 +21,16 @@ the previous `zeefan-remnote-sdk-bridge` id.
 Use the literal `localhost` URL here: the desktop installer can register the
 numeric loopback URL as a non-local plugin without loading its local widgets.
 The asset host still binds only to `127.0.0.1`. Confirm the installed plugin is
-listed under **Build** with the local URL and that its SDK settings appear.
+listed under **Build** with the local URL. The Bridge has no custom settings.
 Approve both `All: ReadCreateModifyDelete` and `KnowledgeBaseInfo: Read`;
-content access alone does not include knowledge-base identity. A new plugin ID
-has separate settings, so its pairing token and write gate must be set explicitly.
+content access alone does not include knowledge-base identity.
 
-Pair the [CLI](https://github.com/zeefan1555/remnote-cli/blob/main/docs/guides/installation.md) with the
-intended KB. Set **CLI pairing token** from the private pairing file, use the
-matching loopback WebSocket port, and enable writes only when authorized.
-The token is private; never put it in screenshots, logs or issue reports.
-Commit the token through normal typing/paste and leave the input before checking
-status. A populated text field alone does not prove that the SDK setting was saved.
+Install the [CLI](https://github.com/zeefan1555/remnote-cli/blob/main/docs/guides/installation.md).
+Run a command directly; there is no pairing, token, endpoint, knowledge-base, or
+Bridge write setting to configure. The CLI must use protocol 2 and the fixed
+`ws://127.0.0.1:3002` endpoint.
 
-After a source or WebSocket URL change, reload the plugin before testing. A
+After a source or protocol change, reload the plugin before testing. A
 manifest/permission change must also be applied to the installed plugin; reloading
 JavaScript alone does not grant new scopes.
 
@@ -57,7 +54,7 @@ Daily local hosting uses a verified copy of `dist/` and `scripts/serve-dist.js`
 under `~/.local/share/remnote-cli-bridge/`, served by the user LaunchAgent
 `com.remnote.cli-bridge-assets` on `127.0.0.1:8090`. Configure `RunAtLoad`,
 `KeepAlive`, an absolute Node path and absolute asset/script paths. The host
-directory must not contain pairing config, source checkout or private evidence.
+directory must not contain source checkout or private evidence.
 Before acceptance, restart this host and RemNote, then re-read the exact card
 IDs and transaction test IDs through the guarded wrapper. Do not restart the
 old MCP service on success. Local hosting requires no plugin upload/publication.

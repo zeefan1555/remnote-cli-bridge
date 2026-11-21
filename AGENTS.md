@@ -1,6 +1,6 @@
 # Agent Map
 
-This repository is the RemNote CLI Bridge plugin. It pairs with the companion CLI at https://github.com/zeefan1555/remnote-cli.
+This repository is the RemNote CLI Bridge plugin. It connects to the companion CLI at https://github.com/zeefan1555/remnote-cli.
 
 ```text
 remnote-cli <-> loopback WebSocket <-> plugin <-> official SDK
@@ -16,21 +16,23 @@ Concurrency is transport-level only. The socket may run several validated reques
 
 ## Ownership
 
-The plugin owns the official SDK, the generated public allowlist, JSON serialization, mutual authentication, knowledge-base binding, and live permission checks. Native transactions stay disabled because SDK 0.0.46 does not acknowledge rejected callbacks; see [ADR 0003](docs/adr/0003-disable-unsafe-native-transactions.md). CLI business behavior lives in remnote-cli, under `src/business/` in that repository.
+The plugin owns the official SDK, the generated public allowlist, JSON serialization, active knowledge-base identity, and live official permission checks. Native transactions stay disabled because SDK 0.0.46 does not acknowledge rejected callbacks; see [ADR 0003](docs/adr/0003-disable-unsafe-native-transactions.md). CLI business behavior lives in remnote-cli, under `src/business/` in that repository.
 
 The gateway actions are `get_status`, `get_sdk_capabilities`, and `sdk_call`. Transaction begin and end requests fail. There is no MCP transport, business action dispatcher, developer-console executor, or compatibility shim.
 
-The handshake is protocol 1. `hello` does not include the plugin id. `get_status.pluginId` is the manifest id `remnote-cli-bridge`. Read [ADR 0001](docs/adr/0001-direct-cli.md) before changing this ownership.
+The handshake is protocol 2. The CLI sends `hello`; the plugin answers `ready` with its plugin/SDK versions, catalog hash, and active knowledge base. There is no token, proof, pairing setting, URL setting, write switch, or destructive switch. The client always connects to `ws://127.0.0.1:3002/`. Read [ADR 0001](docs/adr/0001-direct-cli.md) before changing this ownership.
+
+The trust boundary is the current operating-system user. Installing the plugin and approving RemNote's official scopes trusts local programs running as that user. The CLI listener rejects ordinary webpage origins, but Origin checks do not isolate native local processes because they can forge a header.
 
 ## Code Map
 
-- `src/widgets/index.tsx`: activation, settings, and sidebar registration.
-- `src/bridge/runtime.ts`: authenticated SDK gateway and live authorization.
+- `src/widgets/index.tsx`: activation and sidebar registration.
+- `src/bridge/runtime.ts`: zero-configuration SDK gateway and live KB authorization.
 - `src/bridge/websocket-client.ts`: loopback sessions, request deadlines, and retry.
-- `src/bridge/protocol.ts`: mutual proof and wire limits.
+- `src/bridge/protocol.ts`: protocol 2 handshake primitives, fixed endpoint, request IDs, and wire limits.
 - `src/api/sdk-executor.ts`: allowlisted invocation and bounded serialization.
 - `src/api/sdk-capabilities.generated.ts`: generated SDK catalog.
-- `src/settings.ts`, `public/manifest.json`: gates, pairing, and official scopes.
+- `public/manifest.json`: identity and official scopes.
 
 Read the SDK declarations before concluding a capability is unavailable. Leave private methods, callbacks, and persistent handles off the JSON boundary.
 
