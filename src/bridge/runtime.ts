@@ -1,7 +1,11 @@
 declare const __PLUGIN_VERSION__: string;
 import { FocusEvents, WindowEvents, type ReactRNPlugin } from '@remnote/plugin-sdk';
 import manifest from '../../public/manifest.json';
-import { REMNOTE_SDK_VERSION, SDK_CATALOG_HASH } from '../api/sdk-capabilities.generated';
+import {
+  REMNOTE_SDK_VERSION,
+  SDK_CATALOG_HASH,
+  SDK_CATALOG_SCHEMA_VERSION,
+} from '../api/sdk-capabilities.generated';
 import { executeSdkCall, getSdkCapabilities, type SdkCallParams } from '../api/sdk-executor';
 import { createAccessCheckCache } from './access-check';
 import {
@@ -102,6 +106,7 @@ class BridgeRuntimeController implements BridgeRuntime {
             protocolVersion: PROTOCOL_VERSION,
             pluginId: manifest.id,
             nativeTransactions: false,
+            catalogSchemaVersion: SDK_CATALOG_SCHEMA_VERSION,
             ...(await this.identity()),
           };
         case 'get_sdk_capabilities':
