@@ -11,6 +11,10 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Point the marketplace changelog URL and companion CLI documentation links at the `main` default branch.
 
+### Documentation
+
+- Rewrite the README as an installation and usage guide covering the two official scopes, connection status, active knowledge-base switching, troubleshooting, local source installs, privacy, and protocol 2 compatibility.
+
 ## [0.26.0] - 2026-11-22
 
 ### Changed
