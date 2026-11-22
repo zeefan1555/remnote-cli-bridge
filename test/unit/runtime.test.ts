@@ -39,8 +39,9 @@ describe('zero-configuration SDK runtime', () => {
       result: {
         connected: true,
         protocolVersion: 2,
-        pluginVersion: '0.26.0',
+        pluginVersion: '0.27.0',
         pluginId: 'remnote-cli-bridge',
+        catalogSchemaVersion: 1,
         sdkVersion: '0.0.46',
         sdkCatalogHash: SDK_CATALOG_HASH,
         knowledgeBaseId: 'test-kb',
