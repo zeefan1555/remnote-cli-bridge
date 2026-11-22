@@ -3,6 +3,7 @@ import {
   REMNOTE_SDK_VERSION,
   SDK_CAPABILITIES,
   SDK_CATALOG_HASH,
+  SDK_CATALOG_SCHEMA_VERSION,
 } from './sdk-capabilities.generated';
 
 export type SdkCapability = (typeof SDK_CAPABILITIES)[number];
@@ -16,6 +17,7 @@ export interface SdkCallParams {
 }
 
 export interface SdkCapabilitiesResult {
+  catalogSchemaVersion: number;
   sdkVersion: string;
   sdkCatalogHash: string;
   capabilities: SdkCapability[];
@@ -271,6 +273,7 @@ async function resolveSdkArgument(
 
 export function getSdkCapabilities(): SdkCapabilitiesResult {
   return {
+    catalogSchemaVersion: SDK_CATALOG_SCHEMA_VERSION,
     sdkVersion: REMNOTE_SDK_VERSION,
     sdkCatalogHash: SDK_CATALOG_HASH,
     capabilities: SDK_CAPABILITIES.map((entry) => ({ ...entry })),

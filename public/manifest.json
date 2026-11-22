@@ -6,7 +6,7 @@
   "description": "Zero-configuration local access to the official RemNote Plugin SDK for remnote-cli.",
   "version": {
     "major": 0,
-    "minor": 26,
+    "minor": 27,
     "patch": 0
   },
   "repoUrl": "https://github.com/zeefan1555/remnote-cli-bridge",

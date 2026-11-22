@@ -251,9 +251,10 @@ RemNote desktop. Do not disable browser security protections to make the local p
 
 - **Bridge Protocol 2 is required on both sides.** A CLI and plugin on different protocols cannot
   form a session.
-- **Product versions are informational.** Plugin `0.26.x` and CLI versions do not need to be equal.
-- **The SDK catalog must match.** The CLI checks the live capability catalog and catalog hash. An SDK
-  upgrade may require rebuilding both projects.
+- **Product versions are informational.** Plugin `0.27.x` and CLI versions do not need to be equal.
+- **SDK facts must be synchronized.** The Bridge publishes capability identity, SDK metadata,
+  serialization state and a catalog hash. The CLI owns command grouping and names. An SDK or
+  serialization change regenerates the shared facts artifact; a CLI-only naming change does not.
 - **Native transactions are disabled.** SDK 0.0.46 cannot safely acknowledge a rejected callback, so
   begin/end transaction requests fail before any native transaction opens. A disconnected or timed-out
   call does not abort work that already started and cannot provide rollback.
@@ -276,9 +277,10 @@ npm run check:sdk-capabilities
 npm run build
 ```
 
-`npm run build` validates the manifest and produces `dist/` plus `PluginZip.zip`. The public SDK catalog
-is generated from the installed `@remnote/plugin-sdk` declarations. After an SDK upgrade, run
-`npm run generate:sdk-capabilities`; do not hand-edit the generated catalog.
+`npm run build` validates the manifest and produces `dist/` plus `PluginZip.zip`. The public SDK facts
+are generated from the installed `@remnote/plugin-sdk` declarations into checked-in TypeScript and
+JSON artifacts. After an SDK upgrade, run `npm run generate:sdk-capabilities`; do not hand-edit either
+artifact. The JSON file is the companion CLI's offline SDK catalog source.
 
 For hot-reload development, `npm run dev` is available, but use the production build for local
 acceptance. Live integration suites and their destructive-operation confirmation live in the

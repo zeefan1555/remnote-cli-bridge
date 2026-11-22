@@ -9,6 +9,8 @@ Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Publish versioned SDK facts instead of CLI navigation names. The live catalog hash now covers only SDK identity, signatures, support status, execution mode and serialization metadata; the companion CLI owns command grouping and names.
+- Generate `src/api/sdk-facts.generated.json` as the companion CLI's offline SDK catalog source alongside the plugin's TypeScript allowlist.
 - Point the marketplace changelog URL and companion CLI documentation links at the `main` default branch.
 
 ### Documentation

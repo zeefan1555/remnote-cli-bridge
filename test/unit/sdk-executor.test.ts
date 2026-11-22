@@ -117,7 +117,11 @@ describe('SDK executor', () => {
     expect(result.sdkCatalogHash).toBe(
       createHash('sha256')
         .update(
-          JSON.stringify({ sdkVersion: result.sdkVersion, capabilities: result.capabilities })
+          JSON.stringify({
+            catalogSchemaVersion: result.catalogSchemaVersion,
+            sdkVersion: result.sdkVersion,
+            capabilities: result.capabilities,
+          })
         )
         .digest('hex')
     );
@@ -158,8 +162,6 @@ describe('SDK executor', () => {
         expect.objectContaining({ id: 'namespace:powerup.getPowerupSlotByCode' }),
         expect.objectContaining({
           id: 'rem:getChildrenRem',
-          group: 'rem',
-          command: 'object-get-children-rem',
           signatures: expect.arrayContaining([expect.stringContaining('getChildrenRem')]),
           status: 'supported',
         }),
@@ -184,9 +186,7 @@ describe('SDK executor', () => {
         expect.objectContaining({ id: 'namespace:plugin.track', status: 'unsupported' }),
       ])
     );
-    expect(
-      new Set(result.capabilities.map(({ group, command }) => `${group}:${command}`)).size
-    ).toBe(result.capabilities.length);
+    expect(new Set(result.capabilities.map(({ id }) => id)).size).toBe(result.capabilities.length);
   });
 
   it('passes a write capability through authorization before opening a daily document', async () => {
